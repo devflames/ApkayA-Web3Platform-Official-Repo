@@ -4,6 +4,7 @@ import { ApkayaClient } from "@apkaya/sdk";
 interface EngineSettings {
   baseUrl: string;
   apiKey: string;
+  insightBaseUrl: string;
 }
 
 interface SettingsContextValue {
@@ -18,6 +19,7 @@ const STORAGE_KEY = "apkaya-dashboard:engine-settings";
 const defaultSettings: EngineSettings = {
   baseUrl: "http://localhost:3005",
   apiKey: "",
+  insightBaseUrl: "http://localhost:3006",
 };
 
 function loadSettings(): EngineSettings {
@@ -41,8 +43,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   };
 
   const client = useMemo(
-    () => new ApkayaClient({ baseUrl: settings.baseUrl, apiKey: settings.apiKey }),
-    [settings.baseUrl, settings.apiKey]
+    () =>
+      new ApkayaClient({
+        baseUrl: settings.baseUrl,
+        apiKey: settings.apiKey,
+        insightBaseUrl: settings.insightBaseUrl,
+      }),
+    [settings.baseUrl, settings.apiKey, settings.insightBaseUrl]
   );
 
   const value: SettingsContextValue = {

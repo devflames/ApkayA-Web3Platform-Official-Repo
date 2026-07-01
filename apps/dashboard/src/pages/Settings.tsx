@@ -4,19 +4,28 @@ import { useSettings } from "../context/SettingsContext";
 export function Settings() {
   const { settings, updateSettings, client } = useSettings();
   const [baseUrl, setBaseUrl] = useState(settings.baseUrl);
+  const [insightBaseUrl, setInsightBaseUrl] = useState(settings.insightBaseUrl);
   const [apiKey, setApiKey] = useState(settings.apiKey);
   const [testResult, setTestResult] = useState<"idle" | "ok" | "fail">("idle");
   const [testing, setTesting] = useState(false);
 
   function handleSave() {
-    updateSettings({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() });
+    updateSettings({
+      baseUrl: baseUrl.trim(),
+      insightBaseUrl: insightBaseUrl.trim(),
+      apiKey: apiKey.trim(),
+    });
     setTestResult("idle");
   }
 
   async function handleTest() {
     setTesting(true);
     try {
-      updateSettings({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() });
+      updateSettings({
+        baseUrl: baseUrl.trim(),
+        insightBaseUrl: insightBaseUrl.trim(),
+        apiKey: apiKey.trim(),
+      });
       await client.chains.list();
       setTestResult("ok");
     } catch {
@@ -43,6 +52,17 @@ export function Settings() {
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder="http://localhost:3005"
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="insight-base-url">Insight base URL</label>
+          <input
+            id="insight-base-url"
+            value={insightBaseUrl}
+            onChange={(e) => setInsightBaseUrl(e.target.value)}
+            placeholder="http://localhost:3006"
             style={{ width: "100%" }}
           />
         </div>

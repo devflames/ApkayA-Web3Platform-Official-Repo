@@ -10,6 +10,8 @@ apps/
   engine/      Transaction backend: queues, signs, and sends blockchain
                transactions. Manages backend wallets. Exposes a REST API.
                This is the core, independently-deployable service.
+  insight/     Read-only EVM event indexer + query API (token balances,
+               NFT ownership, transfers). Shares Engine chain config and API keys.
   dashboard/   Developer-facing web UI (React) for managing projects,
                API keys, backend wallets, and contract deployments.
   cli/         `apkaya deploy` / `apkaya create` command line tool.
@@ -31,6 +33,7 @@ packages/
 5. **CLI** — scaffolding + deploy convenience commands. ✅ done (`apkaya login/create/deploy/wallet/tx/apikey`)
 6. **Connect** — end-user wallet modal + in-app email wallet + SIWE. ✅ done (Phase 4)
 7. **Bridge** — BuyWidget / SwapWidget via Coinbase CDP. ✅ done (Phase 4B)
+8. **Insight** — EVM event indexer + read API for balances, NFTs, transfers. ✅ done (Phase 5)
 
 ## Beyond v0
 
@@ -50,10 +53,14 @@ docker compose up postgres -d
 cd apps/engine && cp .env.example .env   # set WALLET_ENCRYPTION_KEY, ENGINE_ADMIN_KEY
 cd apps/engine && npm run dev            # terminal 1 — API on :3005
 cd apps/engine && npm run worker         # terminal 2 — tx worker
-cd apps/dashboard && npm run dev         # terminal 3 — opens on :5173
+cd apps/insight && cp .env.example .env  # same DATABASE_URL + CHAIN_* as Engine
+cd apps/insight && npm run dev           # terminal 3 — Insight API on :3006
+cd apps/insight && npm run worker        # terminal 4 — indexer worker
+cd apps/dashboard && npm run dev         # terminal 5 — opens on :5173
 ```
 Then open the dashboard, go to **Settings**, and point it at your Engine
 instance (`http://localhost:3005` + one of your `ENGINE_ACCESS_KEYS` values).
+Set **Insight base URL** to `http://localhost:3006` when running the indexer locally.
 
 
 ## Why Engine first?
@@ -64,3 +71,4 @@ contract deploys) is a client of it. Get this right and the rest of the
 platform is "just" UI and templates on top.
 
 See `apps/engine/README.md` for the service-specific docs.
+See `apps/insight/README.md` for the indexer API.

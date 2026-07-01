@@ -9,6 +9,7 @@ import { Chains } from "./pages/Chains";
 import { Contracts } from "./pages/Contracts";
 import { ContractDetail } from "./pages/ContractDetail";
 import { Bridge } from "./pages/Bridge";
+import { Insight } from "./pages/Insight";
 import { Settings } from "./pages/Settings";
 
 export function App() {
@@ -26,6 +27,7 @@ export function App() {
             <Route path="/contracts" element={<Contracts />} />
             <Route path="/contracts/:id" element={<ContractDetail />} />
             <Route path="/bridge" element={<Bridge />} />
+            <Route path="/insight" element={<Insight />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>

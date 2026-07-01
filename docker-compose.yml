@@ -56,5 +56,35 @@ services:
       engine-api:
         condition: service_started
 
+  insight-api:
+    build:
+      context: .
+      dockerfile: apps/insight/Dockerfile
+    ports:
+      - "3006:3006"
+    env_file:
+      - ./apps/insight/.env
+    environment:
+      DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
+    command: ["node", "dist/index.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  insight-worker:
+    build:
+      context: .
+      dockerfile: apps/insight/Dockerfile
+    env_file:
+      - ./apps/insight/.env
+    environment:
+      DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
+    command: ["node", "dist/workers/indexerWorker.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      insight-api:
+        condition: service_started
+
 volumes:
   postgres-data:

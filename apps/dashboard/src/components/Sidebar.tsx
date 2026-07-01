@@ -7,6 +7,7 @@ const links = [
   { to: "/transactions", label: "Transactions" },
   { to: "/contracts", label: "Contracts" },
   { to: "/bridge", label: "Payments" },
+  { to: "/insight", label: "Insight" },
   { to: "/api-keys", label: "API Keys" },
   { to: "/chains", label: "Chains" },
   { to: "/settings", label: "Settings" },

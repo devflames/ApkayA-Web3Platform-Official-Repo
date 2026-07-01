@@ -11,6 +11,8 @@
 export interface ApkayaClientOptions {
   baseUrl: string;
   apiKey: string;
+  /** Insight indexer API base URL. Defaults to baseUrl with port 3006 when omitted. */
+  insightBaseUrl?: string;
 }
 
 export interface BackendWallet {
@@ -90,6 +92,37 @@ export interface RegisterContractInput {
   txId?: string;
 }
 
+export interface InsightEvent {
+  id: string;
+  chain_id: number;
+  block_number: string;
+  block_hash: string;
+  tx_hash: string;
+  log_index: number;
+  contract_address: string;
+  event_name: string;
+  decoded_args_json: Record<string, unknown>;
+  indexed_at: string;
+}
+
+export interface TokenBalance {
+  contract_address: string;
+  balance: string;
+}
+
+export interface NftOwned {
+  contract_address: string;
+  token_id: string;
+  balance: string;
+  standard: "erc721" | "erc1155";
+}
+
+export interface IndexerChainStatus {
+  chain_id: number;
+  last_indexed_block: string;
+  updated_at: string | null;
+}
+
 class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -98,15 +131,20 @@ class HttpError extends Error {
 
 export class ApkayaClient {
   private baseUrl: string;
+  private insightBaseUrl: string;
   private apiKey: string;
 
   constructor(options: ApkayaClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     this.apiKey = options.apiKey;
+    this.insightBaseUrl = (options.insightBaseUrl ?? inferInsightBaseUrl(this.baseUrl)).replace(
+      /\/$/,
+      ""
+    );
   }
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
+  private async request<T>(path: string, init?: RequestInit, baseUrl = this.baseUrl): Promise<T> {
+    const res = await fetch(`${baseUrl}${path}`, {
       ...init,
       headers: {
         "Content-Type": "application/json",
@@ -378,4 +416,69 @@ export class ApkayaClient {
         body: JSON.stringify(input),
       }),
   };
+
+  insight = {
+    status: () => this.request<IndexerChainStatus[]>("/insight/status", undefined, this.insightBaseUrl),
+
+    tokenBalances: (address: string, chainId: number) =>
+      this.request<TokenBalance[]>(
+        `/insight/tokens/${encodeURIComponent(address)}/balances?chainId=${chainId}`,
+        undefined,
+        this.insightBaseUrl
+      ),
+
+    nftsOwned: (address: string, filters: { chainId: number; contractAddress?: string }) => {
+      const params = new URLSearchParams({ chainId: String(filters.chainId) });
+      if (filters.contractAddress) params.set("contractAddress", filters.contractAddress);
+      return this.request<NftOwned[]>(
+        `/insight/nfts/${encodeURIComponent(address)}/owned?${params}`,
+        undefined,
+        this.insightBaseUrl
+      );
+    },
+
+    transfers: (filters: {
+      chainId: number;
+      contractAddress?: string;
+      fromBlock?: number;
+      toBlock?: number;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams({ chainId: String(filters.chainId) });
+      if (filters.contractAddress) params.set("contractAddress", filters.contractAddress);
+      if (filters.fromBlock !== undefined) params.set("fromBlock", String(filters.fromBlock));
+      if (filters.toBlock !== undefined) params.set("toBlock", String(filters.toBlock));
+      if (filters.limit) params.set("limit", String(filters.limit));
+      return this.request<InsightEvent[]>(
+        `/insight/transfers?${params}`,
+        undefined,
+        this.insightBaseUrl
+      );
+    },
+
+    events: (filters: {
+      chainId: number;
+      contractAddress?: string;
+      eventName?: string;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams({ chainId: String(filters.chainId) });
+      if (filters.contractAddress) params.set("contractAddress", filters.contractAddress);
+      if (filters.eventName) params.set("eventName", filters.eventName);
+      if (filters.limit) params.set("limit", String(filters.limit));
+      return this.request<InsightEvent[]>(`/insight/events?${params}`, undefined, this.insightBaseUrl);
+    },
+  };
+}
+
+function inferInsightBaseUrl(engineBaseUrl: string): string {
+  try {
+    const url = new URL(engineBaseUrl);
+    if (!url.port || url.port === "3005") {
+      url.port = "3006";
+    }
+    return url.origin;
+  } catch {
+    return "http://localhost:3006";
+  }
 }
