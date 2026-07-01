@@ -5,6 +5,7 @@ const TIMESTAMP_FIELDS = new Set([
   "mined_at",
   "last_used_at",
   "revoked_at",
+  "deployed_at",
 ]);
 
 /** Normalizes pg row values to match the legacy SQLite API response shape. */

@@ -6,6 +6,8 @@ import { Wallets } from "./pages/Wallets";
 import { Transactions } from "./pages/Transactions";
 import { ApiKeys } from "./pages/ApiKeys";
 import { Chains } from "./pages/Chains";
+import { Contracts } from "./pages/Contracts";
+import { ContractDetail } from "./pages/ContractDetail";
 import { Settings } from "./pages/Settings";
 
 export function App() {
@@ -20,6 +22,8 @@ export function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/api-keys" element={<ApiKeys />} />
             <Route path="/chains" element={<Chains />} />
+            <Route path="/contracts" element={<Contracts />} />
+            <Route path="/contracts/:id" element={<ContractDetail />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>

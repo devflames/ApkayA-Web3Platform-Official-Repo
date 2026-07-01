@@ -27,7 +27,7 @@ packages/
 2. **Contracts** — ERC20/721/1155 templates + deploy script callable from Engine. ✅ done (ERC20 + ERC721 drop)
 3. **SDK** — thin TS client over Engine's REST API. ✅ done
 4. **Dashboard** — minimal UI to create backend wallets, send test transactions,
-   and watch the queue drain. ✅ done (wallets, transactions, chains, settings)
+   browse registered contracts (read/write via ABI), and watch the queue drain. ✅ done
 5. **CLI** — scaffolding + deploy convenience commands. ✅ done (`apkaya login/create/deploy/wallet/tx/apikey`)
 
 ## Beyond v0

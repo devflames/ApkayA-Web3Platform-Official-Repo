@@ -58,6 +58,38 @@ export interface SendTransactionInput {
   metadata?: Record<string, unknown>;
 }
 
+export interface DeployedContract {
+  id: string;
+  chain_id: number;
+  address: string;
+  name: string;
+  abi_json: string;
+  deployer_wallet_id: string | null;
+  deployed_at: string;
+  tx_id: string | null;
+}
+
+export interface ContractFunctionInfo {
+  name: string;
+  stateMutability: string;
+  inputs: Array<{ name: string; type: string }>;
+  outputs: Array<{ name: string; type: string }>;
+}
+
+export interface ContractDetail extends Omit<DeployedContract, "abi_json"> {
+  abi: unknown[];
+  functions: ContractFunctionInfo[];
+}
+
+export interface RegisterContractInput {
+  chainId: number;
+  address: string;
+  name: string;
+  abi: unknown[];
+  deployerWalletId?: string;
+  txId?: string;
+}
+
 class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -145,6 +177,46 @@ export class ApkayaClient {
 
   chains = {
     list: () => this.request<Array<{ chainId: number; name: string; rpcUrl: string }>>("/chain"),
+  };
+
+  contracts = {
+    register: (input: RegisterContractInput) =>
+      this.request<DeployedContract>("/contract/register", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    list: (filters?: { chainId?: number; limit?: number }) => {
+      const params = new URLSearchParams();
+      if (filters?.chainId) params.set("chainId", String(filters.chainId));
+      if (filters?.limit) params.set("limit", String(filters.limit));
+      const qs = params.toString();
+      return this.request<DeployedContract[]>(`/contract${qs ? `?${qs}` : ""}`);
+    },
+
+    get: (id: string) => this.request<ContractDetail>(`/contract/${id}`),
+
+    read: (id: string, functionName: string, args: unknown[] = []) =>
+      this.request<{ value: unknown }>(`/contract/${id}/read`, {
+        method: "POST",
+        body: JSON.stringify({ functionName, args }),
+      }),
+
+    write: (
+      id: string,
+      input: {
+        fromWalletId: string;
+        functionName: string;
+        args?: unknown[];
+        valueWei?: string;
+        idempotencyKey?: string;
+        metadata?: Record<string, unknown>;
+      }
+    ) =>
+      this.request<TransactionRecord>(`/contract/${id}/write`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
   };
 
   /**

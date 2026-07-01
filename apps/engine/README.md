@@ -152,7 +152,43 @@ the caller does not wait for on-chain confirmation in this call.
 |---|---|---|
 | GET | `/chain` | List chains configured via `CHAIN_<id>_RPC_URL` env vars |
 
-## Transaction lifecycle
+### Contracts
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/contract/register` | Register a deployed contract + ABI. Body: `{ chainId, address, name, abi, deployerWalletId?, txId? }` |
+| GET | `/contract` | List registered contracts (`?chainId=&limit=`) |
+| GET | `/contract/:id` | Get one contract with parsed ABI and function list |
+| POST | `/contract/:id/read` | Call a view/pure function. Body: `{ functionName, args? }` → `{ value }` |
+| POST | `/contract/:id/write` | Queue a state-changing call via the tx pipeline. Body: `{ fromWalletId, functionName, args?, valueWei?, idempotencyKey?, metadata? }` → `202` with transaction record |
+
+**POST /contract/register body:**
+```json
+{
+  "chainId": 80002,
+  "address": "0x0000000000000000000000000000000000000001",
+  "name": "ApkayaToken",
+  "abi": [ "... Solidity JSON ABI ..." ],
+  "deployerWalletId": "wallet_abc123",
+  "txId": "tx_optional_engine_id"
+}
+```
+
+**POST /contract/:id/read body:**
+```json
+{ "functionName": "balanceOf", "args": ["0x000000000000000000000000000000000000dEaD"] }
+```
+
+**POST /contract/:id/write body:**
+```json
+{
+  "fromWalletId": "wallet_abc123",
+  "functionName": "mintTo",
+  "args": ["0x000000000000000000000000000000000000dEaD", "1000000000000000000"],
+  "valueWei": "0"
+}
+```
+
 
 `queued → sent → mined`
 `queued → sent → reverted` (on-chain failure)
@@ -177,7 +213,7 @@ Webhook event fields: `attempts`, `next_attempt_at`, `last_error`,
 
 ## Rate limiting
 
-Customer API routes (`/backend-wallet`, `/transaction`, `/chain`) are limited
+Customer API routes (`/backend-wallet`, `/transaction`, `/chain`, `/contract`) are limited
 per API key using a fixed one-minute window. The default limit comes from
 `DEFAULT_API_KEY_RATE_LIMIT_PER_MINUTE` (default **120**). Override per key via
 `api_keys.rate_limit_per_minute` or `POST /api-key/:id/rate-limit`. Legacy

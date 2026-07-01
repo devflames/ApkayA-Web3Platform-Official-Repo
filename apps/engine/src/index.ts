@@ -11,6 +11,7 @@ import { rateLimitByApiKey } from "./middleware/rateLimit.js";
 import { walletRouter } from "./routes/wallets.js";
 import { transactionRouter } from "./routes/transactions.js";
 import { chainRouter } from "./routes/chains.js";
+import { contractRouter } from "./routes/contracts.js";
 import { apiKeyRouter } from "./routes/apiKeys.js";
 
 const log = pino({ level: process.env.LOG_LEVEL || "info", name: "engine" });
@@ -37,6 +38,7 @@ app.get("/health", (_req, res) => {
 app.use("/backend-wallet", requireApiKey, rateLimitByApiKey, walletRouter);
 app.use("/transaction", requireApiKey, rateLimitByApiKey, transactionRouter);
 app.use("/chain", requireApiKey, rateLimitByApiKey, chainRouter);
+app.use("/contract", requireApiKey, rateLimitByApiKey, contractRouter);
 app.use("/api-key", requireAdminKey, apiKeyRouter);
 
 app.use((req, res) => {
