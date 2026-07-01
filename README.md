@@ -23,6 +23,8 @@ packages/
                adds contract/wallet helpers for frontend & backend use.
   mobile/      React Native SDK (@apkaya/mobile-sdk).
   flutter-sdk/ Flutter SDK (apkaya_flutter_sdk).
+  unity-sdk/   Unity UPM package (C#) — Engine + Insight + SIWE/WC connect.
+  unreal-sdk/  Unreal plugin (C++) — Engine + Insight + SIWE/WC connect.
   connect/     End-user wallet connect modal + SIWE (web/React).
   contracts/   Solidity contract templates (ERC20, ERC721, ERC1155 +
                extensions) and deployment scripts.
@@ -41,6 +43,7 @@ packages/
 8. **Insight** — EVM event indexer + read API for balances, NFTs, transfers. ✅ done (Phase 5)
 9. **Self-host polish** — docker-compose full stack, QUICKSTART, root `.env`, `npm run dev`. ✅ done (Phase 6)
 10. **Mobile SDKs** — React Native (`@apkaya/mobile-sdk`) + Flutter (`apkaya_flutter_sdk`). ✅ done (Phase 7)
+11. **Game engine SDKs** —  Unity (`packages/unity-sdk`) + Unreal (`packages/unreal-sdk`). ✅ done (Phase 8)
 
 ## Beyond v0
 

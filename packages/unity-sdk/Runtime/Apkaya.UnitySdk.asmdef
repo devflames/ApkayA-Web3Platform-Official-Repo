@@ -1,0 +1,14 @@
+{
+  "name": "Apkaya.UnitySdk",
+  "rootNamespace": "Apkaya.UnitySdk",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

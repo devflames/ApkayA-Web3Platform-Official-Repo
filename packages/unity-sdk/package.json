@@ -1,0 +1,23 @@
+{
+  "name": "dev.apkaya.unity-sdk",
+  "version": "0.1.0",
+  "displayName": "ApkayA Unity SDK",
+  "description": "Thin Unity client for ApkayA Engine + Insight REST APIs with WalletConnect v2 and SIWE wallet connect.",
+  "unity": "2021.3",
+  "unityRelease": "0f1",
+  "documentationUrl": "https://github.com/devflames/ApkayA-Web3Platform/blob/main/packages/unity-sdk/README.md",
+  "author": {
+    "name": "ApkayA",
+    "url": "https://github.com/devflames/ApkayA-Web3Platform"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  },
+  "samples": [
+    {
+      "displayName": "ApkayA Demo",
+      "description": "Connect wallet, Insight balances, contract write via Engine",
+      "path": "Samples~/ApkayaDemo"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "ApkayA Unreal SDK",
+  "Description": "Thin Unreal Engine client for ApkayA Engine + Insight REST APIs with WalletConnect v2 and SIWE wallet connect.",
+  "Category": "Blockchain",
+  "CreatedBy": "ApkayA",
+  "CreatedByURL": "https://github.com/devflames/ApkayA-Web3Platform",
+  "DocsURL": "https://github.com/devflames/ApkayA-Web3Platform/blob/main/packages/unreal-sdk/README.md",
+  "MarketplaceURL": "",
+  "SupportURL": "https://github.com/devflames/ApkayA-Web3Platform/issues",
+  "CanContainContent": true,
+  "IsBetaVersion": true,
+  "IsExperimentalVersion": false,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "ApkayaUnreal",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}
