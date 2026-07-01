@@ -1,3 +1,3 @@
 -- Historical reference schema (SQLite v0).
--- The live Postgres schema is managed by migrations in ../migrations/.
--- See 1738368000000_initial-schema.cjs for the authoritative definition.
+-- Live Postgres schema is managed by migrations in ../../migrations/.
+-- Latest: 1738368000000_initial-schema, 1738400000000_phase2-webhook-retry-rate-limits

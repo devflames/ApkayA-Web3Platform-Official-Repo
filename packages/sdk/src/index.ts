@@ -40,6 +40,7 @@ export interface ApiKeyRecord {
   last_used_at: string | null;
   revoked_at: string | null;
   is_active: number;
+  rate_limit_per_minute: number | null;
 }
 
 export interface CreatedApiKey extends ApiKeyRecord {
@@ -153,10 +154,10 @@ export class ApkayaClient {
    * wallet/transaction calls with a customer key.
    */
   apiKeys = {
-    create: (label: string) =>
+    create: (label: string, options?: { rateLimitPerMinute?: number }) =>
       this.request<CreatedApiKey>("/api-key/create", {
         method: "POST",
-        body: JSON.stringify({ label }),
+        body: JSON.stringify({ label, rateLimitPerMinute: options?.rateLimitPerMinute }),
       }),
 
     list: () => this.request<ApiKeyRecord[]>("/api-key"),
@@ -168,5 +169,11 @@ export class ApkayaClient {
 
     reactivate: (id: string) =>
       this.request<{ id: string; is_active: boolean }>(`/api-key/${id}/reactivate`, { method: "POST" }),
+
+    setRateLimit: (id: string, rateLimitPerMinute: number | null) =>
+      this.request<{ id: string; rate_limit_per_minute: number | null }>(`/api-key/${id}/rate-limit`, {
+        method: "POST",
+        body: JSON.stringify({ rateLimitPerMinute }),
+      }),
   };
 }

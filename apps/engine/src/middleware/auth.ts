@@ -6,6 +6,7 @@ declare global {
   namespace Express {
     interface Request {
       apiKeyId?: string;
+      apiKeyRateLimitPerMinute?: number | null;
     }
   }
 }
@@ -26,6 +27,7 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
   const dbKey = await verifyApiKey(token);
   if (dbKey) {
     req.apiKeyId = dbKey.id;
+    req.apiKeyRateLimitPerMinute = dbKey.rate_limit_per_minute;
     next();
     return;
   }

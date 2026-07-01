@@ -43,5 +43,18 @@ services:
       engine-api:
         condition: service_started
 
+  engine-webhook-worker:
+    build: ./apps/engine
+    env_file:
+      - ./apps/engine/.env
+    environment:
+      DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
+    command: ["node", "dist/workers/webhookWorker.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      engine-api:
+        condition: service_started
+
 volumes:
   postgres-data:

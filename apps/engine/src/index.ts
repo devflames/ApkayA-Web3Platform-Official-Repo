@@ -7,6 +7,7 @@ import { pinoHttp } from "pino-http";
 
 import { runMigrations } from "./db/index.js";
 import { requireApiKey, requireAdminKey } from "./middleware/auth.js";
+import { rateLimitByApiKey } from "./middleware/rateLimit.js";
 import { walletRouter } from "./routes/wallets.js";
 import { transactionRouter } from "./routes/transactions.js";
 import { chainRouter } from "./routes/chains.js";
@@ -22,9 +23,10 @@ app.use(pinoHttp({ logger: log }));
 app.use(
   rateLimit({
     windowMs: 60_000,
-    limit: 300,
+    limit: Number(process.env.GLOBAL_IP_RATE_LIMIT_PER_MINUTE ?? 600),
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => req.path === "/health",
   })
 );
 
@@ -32,9 +34,9 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-app.use("/backend-wallet", requireApiKey, walletRouter);
-app.use("/transaction", requireApiKey, transactionRouter);
-app.use("/chain", requireApiKey, chainRouter);
+app.use("/backend-wallet", requireApiKey, rateLimitByApiKey, walletRouter);
+app.use("/transaction", requireApiKey, rateLimitByApiKey, transactionRouter);
+app.use("/chain", requireApiKey, rateLimitByApiKey, chainRouter);
 app.use("/api-key", requireAdminKey, apiKeyRouter);
 
 app.use((req, res) => {

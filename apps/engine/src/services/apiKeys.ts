@@ -11,33 +11,36 @@ export interface ApiKeyRecord {
   last_used_at: string | null;
   revoked_at: string | null;
   is_active: number;
+  rate_limit_per_minute: number | null;
 }
 
 function hashKey(rawKey: string): string {
   return crypto.createHash("sha256").update(rawKey).digest("hex");
 }
 
-/** Generates a new raw key in the form `sk_live_<40 hex chars>`. */
 function generateRawKey(): string {
   return `sk_live_${crypto.randomBytes(20).toString("hex")}`;
 }
 
-const SAFE_COLUMNS = "id, label, key_prefix, created_at, last_used_at, revoked_at, is_active";
+function defaultRateLimitPerMinute(): number {
+  return Number(process.env.DEFAULT_API_KEY_RATE_LIMIT_PER_MINUTE ?? 120);
+}
 
-/**
- * Creates a new API key. The raw key is returned exactly once — only its
- * SHA-256 hash and a display prefix are persisted. There is no way to
- * recover the raw value later, matching how real key-issuance systems
- * (Stripe, thirdweb, etc.) behave.
- */
-export async function createApiKey(label: string): Promise<{ record: ApiKeyRecord; rawKey: string }> {
+const SAFE_COLUMNS =
+  "id, label, key_prefix, created_at, last_used_at, revoked_at, is_active, rate_limit_per_minute";
+
+export async function createApiKey(
+  label: string,
+  rateLimitPerMinute?: number | null
+): Promise<{ record: ApiKeyRecord; rawKey: string }> {
   const rawKey = generateRawKey();
   const id = nanoid();
   const keyPrefix = rawKey.slice(0, 16);
 
   await execute(
-    `INSERT INTO api_keys (id, label, key_prefix, key_hash) VALUES ($1, $2, $3, $4)`,
-    [id, label, keyPrefix, hashKey(rawKey)]
+    `INSERT INTO api_keys (id, label, key_prefix, key_hash, rate_limit_per_minute)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [id, label, keyPrefix, hashKey(rawKey), rateLimitPerMinute ?? null]
   );
 
   const record = await queryOne<ApiKeyRecord>(
@@ -79,10 +82,26 @@ export async function reactivateApiKey(id: string): Promise<boolean> {
   return changes > 0;
 }
 
-/**
- * Verifies a raw key against stored hashes. On success, updates
- * last_used_at (best-effort) and returns the matching record.
- */
+export async function setApiKeyRateLimit(
+  id: string,
+  rateLimitPerMinute: number | null
+): Promise<boolean> {
+  const changes = await execute(
+    `UPDATE api_keys SET rate_limit_per_minute = $1 WHERE id = $2`,
+    [rateLimitPerMinute, id]
+  );
+  return changes > 0;
+}
+
+export async function getRateLimitForKey(apiKeyId: string): Promise<number> {
+  const row = await queryOne<{ rate_limit_per_minute: number | null }>(
+    `SELECT rate_limit_per_minute FROM api_keys WHERE id = $1 AND is_active = 1`,
+    [apiKeyId]
+  );
+  if (!row) return defaultRateLimitPerMinute();
+  return row.rate_limit_per_minute ?? defaultRateLimitPerMinute();
+}
+
 export async function verifyApiKey(rawKey: string): Promise<ApiKeyRecord | undefined> {
   if (!rawKey.startsWith("sk_live_")) return undefined;
 

@@ -60,6 +60,7 @@ npm install
 npm run migrate        # optional — migrations also run on API/worker start
 npm run dev            # API on :3005
 npm run worker         # second terminal — tx worker
+npm run webhook-worker # third terminal — webhook retry worker (when WEBHOOK_URL is set)
 ```
 
 Then issue your first customer key:
@@ -88,11 +89,12 @@ Two kinds of key exist:
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api-key/create` | Issue a new key. Body: `{ "label": "acme-corp" }`. The raw key is returned **once**, in this response only. |
+| POST | `/api-key/create` | Issue a new key. Body: `{ "label": "acme-corp", "rateLimitPerMinute": 120 }` (rate limit optional). The raw key is returned **once**, in this response only. |
 | GET | `/api-key` | List all keys (hashes never exposed, only a display prefix) |
 | GET | `/api-key/:id` | Get one key's metadata |
 | POST | `/api-key/:id/revoke` | Revoke a key immediately |
 | POST | `/api-key/:id/reactivate` | Un-revoke a key |
+| POST | `/api-key/:id/rate-limit` | Set per-key rate limit. Body: `{ "rateLimitPerMinute": 60 }` or `null` to use the instance default |
 
 **POST /api-key/create response:**
 ```json
@@ -102,6 +104,7 @@ Two kinds of key exist:
     "label": "acme-corp",
     "key_prefix": "sk_live_a1b2c3d4",
     "key": "sk_live_a1b2c3d4e5f6...",
+    "rate_limit_per_minute": null,
     "created_at": "2026-07-01 03:10:00",
     "is_active": 1
   }
@@ -163,6 +166,27 @@ Set `WEBHOOK_URL` to receive POSTs on `tx.sent`, `tx.mined`, `tx.reverted`,
 `X-Engine-Signature` header, computed over the raw JSON body using
 `WEBHOOK_SECRET`. Verify it server-side before trusting the payload.
 
+Delivery is **durable with retries**. Every event is stored in
+`webhook_events` and delivered immediately when possible. Failures are retried
+by the webhook worker (`npm run webhook-worker`) with exponential backoff:
+**5s → 30s → 2m → 10m → 1h** (six total attempts). After the final failure the
+event is marked `delivery_status = dead` and `last_error` records the reason.
+
+Webhook event fields: `attempts`, `next_attempt_at`, `last_error`,
+`delivery_status` (`pending` | `delivered` | `dead`).
+
+## Rate limiting
+
+Customer API routes (`/backend-wallet`, `/transaction`, `/chain`) are limited
+per API key using a fixed one-minute window. The default limit comes from
+`DEFAULT_API_KEY_RATE_LIMIT_PER_MINUTE` (default **120**). Override per key via
+`api_keys.rate_limit_per_minute` or `POST /api-key/:id/rate-limit`. Legacy
+`ENGINE_ACCESS_KEYS` share a per-IP bucket at the same default. A separate
+global IP ceiling (`GLOBAL_IP_RATE_LIMIT_PER_MINUTE`, default **600**) applies
+to all routes except `/health`.
+
+Exceeded limits return **429** with `{ "error": "...", "limitPerMinute": N }`.
+
 ## Adding a new chain
 
 No code change needed — add two env vars and restart:
@@ -177,6 +201,6 @@ CHAIN_8453_NAME=Base
 - [x] ~~Replace the static `ENGINE_ACCESS_KEYS` allowlist with the `api_keys` table~~ — done. `ENGINE_ACCESS_KEYS` is now a legacy fallback only; leave it unset once you're issuing real keys.
 - [ ] Move backend wallet keys from local AES-encrypted storage to a KMS (AWS KMS / GCP KMS / HashiCorp Vault)
 - [x] Per-wallet nonce manager — in-memory per-worker allocator in `src/services/nonceManager.ts`, seeded from chain pending count, with periodic reconciliation
-- [ ] Webhook retry queue with exponential backoff (currently single-attempt, best-effort)
-- [ ] Per-API-key rate limiting (currently global IP-based only) — `req.apiKeyId` is already available in route handlers for this
+- [x] Webhook retry queue with exponential backoff — `webhook_events` + `webhook-worker` (5s/30s/2m/10m/1h, then dead)
+- [x] Per-API-key rate limiting — `rateLimitByApiKey` middleware + `api_keys.rate_limit_per_minute`
 - [ ] Key rotation flow (issue new + grace-period-revoke old) and scoped permissions per key (e.g. read-only keys)

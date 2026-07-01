@@ -1,8 +1,7 @@
 # ApkayA Web3Platform
 
 An open, self-hostable developer infrastructure platform for building on-chain
-apps — contracts, wallets, and a transaction backend — inspired by the
-architecture of thirdweb (https://thirdweb.com).
+apps — contracts, wallets, and a transaction backend
 
 ## Monorepo layout
 
