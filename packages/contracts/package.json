@@ -6,6 +6,9 @@
     "compile": "hardhat compile",
     "deploy:amoy": "hardhat run scripts/deploy.ts --network polygonAmoy",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:token": "hardhat run scripts/deploy-token.ts --network polygonAmoy",
+    "deploy:token:sepolia": "hardhat run scripts/deploy-token.ts --network sepolia",
+    "mint:demo": "hardhat run scripts/mint-demo.ts --network polygonAmoy",
     "test": "hardhat test"
   },
   "dependencies": {

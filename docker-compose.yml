@@ -22,18 +22,31 @@ services:
     ports:
       - "3005:3005"
     env_file:
-      - ./apps/engine/.env
+      - .env
     environment:
       DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
+      PORT: "3005"
     command: ["node", "dist/index.js"]
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3005/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   engine-worker:
     build: ./apps/engine
     env_file:
-      - ./apps/engine/.env
+      - .env
     environment:
       DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
     command: ["node", "dist/workers/txWorker.js"]
@@ -41,12 +54,12 @@ services:
       postgres:
         condition: service_healthy
       engine-api:
-        condition: service_started
+        condition: service_healthy
 
   engine-webhook-worker:
     build: ./apps/engine
     env_file:
-      - ./apps/engine/.env
+      - .env
     environment:
       DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
     command: ["node", "dist/workers/webhookWorker.js"]
@@ -54,7 +67,9 @@ services:
       postgres:
         condition: service_healthy
       engine-api:
-        condition: service_started
+        condition: service_healthy
+    profiles:
+      - webhooks
 
   insight-api:
     build:
@@ -63,20 +78,33 @@ services:
     ports:
       - "3006:3006"
     env_file:
-      - ./apps/insight/.env
+      - .env
     environment:
       DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
+      PORT: "3006"
     command: ["node", "dist/index.js"]
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3006/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   insight-worker:
     build:
       context: .
       dockerfile: apps/insight/Dockerfile
     env_file:
-      - ./apps/insight/.env
+      - .env
     environment:
       DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
     command: ["node", "dist/workers/indexerWorker.js"]
@@ -84,7 +112,23 @@ services:
       postgres:
         condition: service_healthy
       insight-api:
-        condition: service_started
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+      args:
+        VITE_ENGINE_URL: http://localhost:3005
+        VITE_INSIGHT_URL: http://localhost:3006
+        VITE_DEFAULT_API_KEY: ${ENGINE_ACCESS_KEYS:-dev-secret-key-change-me}
+    ports:
+      - "5173:80"
+    depends_on:
+      engine-api:
+        condition: service_healthy
+      insight-api:
+        condition: service_healthy
 
 volumes:
   postgres-data:

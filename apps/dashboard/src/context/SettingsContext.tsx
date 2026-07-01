@@ -17,9 +17,9 @@ interface SettingsContextValue {
 const STORAGE_KEY = "apkaya-dashboard:engine-settings";
 
 const defaultSettings: EngineSettings = {
-  baseUrl: "http://localhost:3005",
-  apiKey: "",
-  insightBaseUrl: "http://localhost:3006",
+  baseUrl: import.meta.env.VITE_ENGINE_URL || "http://localhost:3005",
+  apiKey: import.meta.env.VITE_DEFAULT_API_KEY || "",
+  insightBaseUrl: import.meta.env.VITE_INSIGHT_URL || "http://localhost:3006",
 };
 
 function loadSettings(): EngineSettings {

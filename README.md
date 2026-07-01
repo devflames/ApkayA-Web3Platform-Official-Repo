@@ -34,6 +34,7 @@ packages/
 6. **Connect** — end-user wallet modal + in-app email wallet + SIWE. ✅ done (Phase 4)
 7. **Bridge** — BuyWidget / SwapWidget via Coinbase CDP. ✅ done (Phase 4B)
 8. **Insight** — EVM event indexer + read API for balances, NFTs, transfers. ✅ done (Phase 5)
+9. **Self-host polish** — docker-compose full stack, QUICKSTART, root `.env`, `npm run dev`. ✅ done (Phase 6)
 
 ## Beyond v0
 
@@ -41,26 +42,26 @@ packages/
   revocable keys via a separate admin-only key (`ENGINE_ADMIN_KEY`), rather
   than a single shared static secret. See `apps/engine/README.md#api-keys-admin-only`.
 
-## Running the dashboard
+## Running locally
+
+See **[QUICKSTART.md](QUICKSTART.md)** for the full clone → deploy → transfer → Insight walkthrough.
+
+**Docker (whole platform):**
 
 ```bash
-# from the repo root — installs all workspaces, including linking
-# @apkaya/sdk into the dashboard via the npm workspace
-npm install
-
-docker compose up postgres -d
-
-cd apps/engine && cp .env.example .env   # set WALLET_ENCRYPTION_KEY, ENGINE_ADMIN_KEY
-cd apps/engine && npm run dev            # terminal 1 — API on :3005
-cd apps/engine && npm run worker         # terminal 2 — tx worker
-cd apps/insight && cp .env.example .env  # same DATABASE_URL + CHAIN_* as Engine
-cd apps/insight && npm run dev           # terminal 3 — Insight API on :3006
-cd apps/insight && npm run worker        # terminal 4 — indexer worker
-cd apps/dashboard && npm run dev         # terminal 5 — opens on :5173
+cp .env.example .env          # set DEPLOYER_PRIVATE_KEY for contract deploys
+npm run env:sync
+docker compose up -d --build  # postgres + engine + insight + dashboard
 ```
-Then open the dashboard, go to **Settings**, and point it at your Engine
-instance (`http://localhost:3005` + one of your `ENGINE_ACCESS_KEYS` values).
-Set **Insight base URL** to `http://localhost:3006` when running the indexer locally.
+
+**Native dev (single command):**
+
+```bash
+cp .env.example .env && npm run env:sync
+npm run dev                   # postgres via compose; boots all app processes
+```
+
+Dashboard: [http://localhost:5173](http://localhost:5173) · Engine: `:3005` · Insight: `:3006`
 
 
 ## Why Engine first?
@@ -72,3 +73,4 @@ platform is "just" UI and templates on top.
 
 See `apps/engine/README.md` for the service-specific docs.
 See `apps/insight/README.md` for the indexer API.
+See [QUICKSTART.md](QUICKSTART.md) for the self-host walkthrough.

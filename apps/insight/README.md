@@ -40,7 +40,7 @@ See `apps/engine/README.md` for setup scripts.
 
 ```bash
 cd apps/insight
-cp .env.example .env
+cp .env.example .env   # or: cp ../../.env.example ../../.env && npm run env:sync
 # same CHAIN_* vars and DATABASE_URL as Engine
 # use a customer API key from Engine (POST /api-key/create)
 

@@ -7,9 +7,15 @@
     "packages/*"
   ],
   "scripts": {
-    "engine:dev": "yarn workspace @apkaya/engine dev",
-    "engine:build": "yarn workspace @apkaya/engine build",
-    "sdk:build": "yarn workspace @apkaya/sdk build"
+    "env:sync": "node scripts/sync-env.mjs",
+    "predev": "docker compose up postgres -d",
+    "dev": "concurrently -k -n engine,worker,insight,insight-w,dashboard -c blue,green,cyan,magenta,yellow \"npm run dev --workspace=@apkaya/engine\" \"npm run worker --workspace=@apkaya/engine\" \"npm run dev --workspace=@apkaya/insight\" \"npm run worker --workspace=@apkaya/insight\" \"npm run dev --workspace=@apkaya/dashboard\"",
+    "engine:dev": "npm run dev --workspace=@apkaya/engine",
+    "engine:build": "npm run build --workspace=@apkaya/engine",
+    "sdk:build": "npm run build --workspace=@apkaya/sdk"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "engines": {
     "node": ">=18"
