@@ -4,9 +4,10 @@ import {
   verifyEmailCode,
   type SiweSessionResult,
 } from "../core/siwe.js";
+import { storageGet, storageRemove, storageSet } from "../core/storage.js";
 import type { ConnectConfig, SendTransactionRequest, WalletAdapter } from "../core/types.js";
 
-const SESSION_STORAGE_KEY = "apkaya_connect_in_app_session";
+export const SESSION_STORAGE_KEY = "apkaya_connect_in_app_session";
 
 export class InAppWalletAdapter implements WalletAdapter {
   readonly id = "in-app";
@@ -15,29 +16,30 @@ export class InAppWalletAdapter implements WalletAdapter {
 
   private session: SiweSessionResult | null = null;
   private listeners = new Set<(address: string | null) => void>();
+  private initialized = false;
 
-  constructor(private readonly config: ConnectConfig) {
-    this.restoreSession();
-  }
+  constructor(private readonly config: ConnectConfig) {}
 
-  private restoreSession(): void {
-    if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) return;
-    try {
-      this.session = JSON.parse(raw) as SiweSessionResult;
-    } catch {
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  /** Restore persisted session — call on startup (required for async storage). */
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+    const raw = await storageGet(this.config.storage, SESSION_STORAGE_KEY);
+    if (raw) {
+      try {
+        this.session = JSON.parse(raw) as SiweSessionResult;
+      } catch {
+        await storageRemove(this.config.storage, SESSION_STORAGE_KEY);
+      }
     }
+    this.initialized = true;
   }
 
-  private persistSession(session: SiweSessionResult | null): void {
-    if (typeof window === "undefined") return;
+  private async persistSession(session: SiweSessionResult | null): Promise<void> {
     if (!session) {
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      await storageRemove(this.config.storage, SESSION_STORAGE_KEY);
       return;
     }
-    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    await storageSet(this.config.storage, SESSION_STORAGE_KEY, JSON.stringify(session));
   }
 
   isAvailable(): boolean {
@@ -46,23 +48,27 @@ export class InAppWalletAdapter implements WalletAdapter {
 
   /** Called by Connect UI after email OTP verification — not a direct user action. */
   async establishSession(session: SiweSessionResult): Promise<void> {
+    await this.initialize();
     this.session = session;
-    this.persistSession(session);
+    await this.persistSession(session);
     for (const cb of this.listeners) cb(session.address);
   }
 
   async connect(): Promise<void> {
+    await this.initialize();
     if (this.session) return;
     throw new Error("In-app wallet requires email verification via Connect UI.");
   }
 
   async disconnect(): Promise<void> {
+    await this.initialize();
     this.session = null;
-    this.persistSession(null);
+    await this.persistSession(null);
     for (const cb of this.listeners) cb(null);
   }
 
   async getAddress(): Promise<string | null> {
+    await this.initialize();
     return this.session?.address ?? null;
   }
 

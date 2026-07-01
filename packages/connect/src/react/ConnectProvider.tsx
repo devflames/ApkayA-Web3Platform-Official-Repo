@@ -86,6 +86,17 @@ export function ConnectProvider({ config, theme, children }: ConnectProviderProp
   const wcRef = useRef(new WalletConnectAdapter(config));
   const inAppRef = useRef(new InAppWalletAdapter(config));
 
+  useEffect(() => {
+    inAppRef.current.initialize().then(() => {
+      inAppRef.current.getAddress().then((addr) => {
+        if (addr) {
+          setAdapter(inAppRef.current);
+          setAddress(addr);
+        }
+      });
+    });
+  }, [config]);
+
   const [adapter, setAdapter] = useState<WalletAdapter | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<string | null>(null);

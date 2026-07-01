@@ -15,10 +15,15 @@ apps/
   dashboard/   Developer-facing web UI (React) for managing projects,
                API keys, backend wallets, and contract deployments.
   cli/         `apkaya deploy` / `apkaya create` command line tool.
+  mobile-example-rn/      Expo demo for @apkaya/mobile-sdk.
+  mobile-example-flutter/   Flutter demo for apkaya_flutter_sdk.
 
 packages/
   sdk/         TypeScript client SDK that wraps the Engine REST API and
                adds contract/wallet helpers for frontend & backend use.
+  mobile/      React Native SDK (@apkaya/mobile-sdk).
+  flutter-sdk/ Flutter SDK (apkaya_flutter_sdk).
+  connect/     End-user wallet connect modal + SIWE (web/React).
   contracts/   Solidity contract templates (ERC20, ERC721, ERC1155 +
                extensions) and deployment scripts.
 ```
@@ -35,6 +40,7 @@ packages/
 7. **Bridge** — BuyWidget / SwapWidget via Coinbase CDP. ✅ done (Phase 4B)
 8. **Insight** — EVM event indexer + read API for balances, NFTs, transfers. ✅ done (Phase 5)
 9. **Self-host polish** — docker-compose full stack, QUICKSTART, root `.env`, `npm run dev`. ✅ done (Phase 6)
+10. **Mobile SDKs** — React Native (`@apkaya/mobile-sdk`) + Flutter (`apkaya_flutter_sdk`). ✅ done (Phase 7)
 
 ## Beyond v0
 

@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "ApkayA Mobile Example",
+    "slug": "apkaya-mobile-example-rn",
+    "scheme": "apkayaexample",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "dev.apkaya.mobileexample"
+    },
+    "android": {
+      "package": "dev.apkaya.mobileexample"
+    }
+  }
+}

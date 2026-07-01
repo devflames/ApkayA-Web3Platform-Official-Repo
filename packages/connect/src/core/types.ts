@@ -25,10 +25,18 @@ export interface ConnectEngineConfig {
   apiKey: string;
 }
 
+export interface SecureStorage {
+  getItem(key: string): Promise<string | null> | string | null;
+  setItem(key: string, value: string): Promise<void> | void;
+  removeItem(key: string): Promise<void> | void;
+}
+
 export interface ConnectConfig {
   chainId: number;
   engine: ConnectEngineConfig;
   walletConnectProjectId?: string;
+  /** Optional secure/async storage for in-app sessions (mobile keychain, etc.). */
+  storage?: SecureStorage;
   siwe?: {
     domain: string;
     uri: string;

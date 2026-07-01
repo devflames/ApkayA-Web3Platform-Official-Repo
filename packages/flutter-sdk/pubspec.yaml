@@ -1,0 +1,24 @@
+name: apkaya_flutter_sdk
+description: Dart/Flutter client for ApkayA Engine and Insight APIs with WalletConnect and SIWE support.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  flutter_secure_storage: ^9.2.2
+  reown_appkit: ^1.4.0
+  app_links: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

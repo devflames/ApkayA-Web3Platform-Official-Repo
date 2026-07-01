@@ -5,6 +5,7 @@ export type {
   ConnectEngineConfig,
   SendTransactionRequest,
   SessionInfo,
+  SecureStorage,
   SocialAuthProvider,
 } from "./core/types.js";
 export { SocialAuthNotImplementedError, socialAuthProviders } from "./core/types.js";
@@ -19,4 +20,6 @@ export {
   inAppSendTransaction,
 } from "./core/siwe.js";
 export type { SiweNonceResult, SiweSessionResult } from "./core/siwe.js";
+export { localStorageAdapter, storageGet, storageSet, storageRemove } from "./core/storage.js";
+export { SESSION_STORAGE_KEY } from "./adapters/inApp.js";
 export * from "./adapters/index.js";
