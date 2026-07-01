@@ -1,0 +1,26 @@
+{
+  "name": "@apkaya/cli",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "apkaya": "dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json && chmod +x dist/index.js"
+  },
+  "dependencies": {
+    "@apkaya/sdk": "*",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.2",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/prompts": "^2.4.9",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

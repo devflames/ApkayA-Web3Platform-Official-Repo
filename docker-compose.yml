@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  engine-api:
+    build: ./apps/engine
+    ports:
+      - "3005:3005"
+    env_file:
+      - ./apps/engine/.env
+    volumes:
+      - engine-data:/app/data
+    command: ["node", "dist/index.js"]
+
+  engine-worker:
+    build: ./apps/engine
+    env_file:
+      - ./apps/engine/.env
+    volumes:
+      - engine-data:/app/data
+    command: ["node", "dist/workers/txWorker.js"]
+    depends_on:
+      - engine-api
+
+volumes:
+  engine-data:

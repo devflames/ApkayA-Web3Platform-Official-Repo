@@ -1,0 +1,17 @@
+{
+  "name": "apkaya-web3platform",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "engine:dev": "yarn workspace @apkaya/engine dev",
+    "engine:build": "yarn workspace @apkaya/engine build",
+    "sdk:build": "yarn workspace @apkaya/sdk build"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
