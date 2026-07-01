@@ -1,25 +1,47 @@
 version: "3.8"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: apkaya
+      POSTGRES_PASSWORD: apkaya
+      POSTGRES_DB: engine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apkaya -d engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   engine-api:
     build: ./apps/engine
     ports:
       - "3005:3005"
     env_file:
       - ./apps/engine/.env
-    volumes:
-      - engine-data:/app/data
+    environment:
+      DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
     command: ["node", "dist/index.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   engine-worker:
     build: ./apps/engine
     env_file:
       - ./apps/engine/.env
-    volumes:
-      - engine-data:/app/data
+    environment:
+      DATABASE_URL: postgres://apkaya:apkaya@postgres:5432/engine
     command: ["node", "dist/workers/txWorker.js"]
     depends_on:
-      - engine-api
+      postgres:
+        condition: service_healthy
+      engine-api:
+        condition: service_started
 
 volumes:
-  engine-data:
+  postgres-data:

@@ -1,3 +1,5 @@
+.cursor/
+
 node_modules/
 dist/
 build/
@@ -10,3 +12,5 @@ coverage/
 artifacts/
 typechain-types/
 cache/
+apps/engine/data/
+*.sqlite

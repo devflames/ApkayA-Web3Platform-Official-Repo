@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { nanoid } from "nanoid";
-import { db } from "../db/index.js";
+import { execute, query, queryOne } from "../db/index.js";
+import { serializeRow, serializeRows } from "../db/serialize.js";
 
 export interface ApiKeyRecord {
   id: string;
@@ -29,57 +30,71 @@ const SAFE_COLUMNS = "id, label, key_prefix, created_at, last_used_at, revoked_a
  * recover the raw value later, matching how real key-issuance systems
  * (Stripe, thirdweb, etc.) behave.
  */
-export function createApiKey(label: string): { record: ApiKeyRecord; rawKey: string } {
+export async function createApiKey(label: string): Promise<{ record: ApiKeyRecord; rawKey: string }> {
   const rawKey = generateRawKey();
   const id = nanoid();
-  const keyPrefix = rawKey.slice(0, 16); // e.g. "sk_live_a1b2c3d4"
+  const keyPrefix = rawKey.slice(0, 16);
 
-  db.prepare(
-    `INSERT INTO api_keys (id, label, key_prefix, key_hash) VALUES (?, ?, ?, ?)`
-  ).run(id, label, keyPrefix, hashKey(rawKey));
+  await execute(
+    `INSERT INTO api_keys (id, label, key_prefix, key_hash) VALUES ($1, $2, $3, $4)`,
+    [id, label, keyPrefix, hashKey(rawKey)]
+  );
 
-  const record = db.prepare(`SELECT ${SAFE_COLUMNS} FROM api_keys WHERE id = ?`).get(id) as ApiKeyRecord;
-  return { record, rawKey };
+  const record = await queryOne<ApiKeyRecord>(
+    `SELECT ${SAFE_COLUMNS} FROM api_keys WHERE id = $1`,
+    [id]
+  );
+  if (!record) throw new Error("Failed to create API key.");
+  return { record: serializeRow(record), rawKey };
 }
 
-export function listApiKeys(): ApiKeyRecord[] {
-  return db.prepare(`SELECT ${SAFE_COLUMNS} FROM api_keys ORDER BY created_at DESC`).all() as ApiKeyRecord[];
+export async function listApiKeys(): Promise<ApiKeyRecord[]> {
+  const rows = await query<ApiKeyRecord>(
+    `SELECT ${SAFE_COLUMNS} FROM api_keys ORDER BY created_at DESC`
+  );
+  return serializeRows(rows);
 }
 
-export function getApiKey(id: string): ApiKeyRecord | undefined {
-  return db.prepare(`SELECT ${SAFE_COLUMNS} FROM api_keys WHERE id = ?`).get(id) as ApiKeyRecord | undefined;
+export async function getApiKey(id: string): Promise<ApiKeyRecord | undefined> {
+  const row = await queryOne<ApiKeyRecord>(
+    `SELECT ${SAFE_COLUMNS} FROM api_keys WHERE id = $1`,
+    [id]
+  );
+  return row ? serializeRow(row) : undefined;
 }
 
-export function revokeApiKey(id: string): boolean {
-  const result = db
-    .prepare(`UPDATE api_keys SET is_active = 0, revoked_at = datetime('now') WHERE id = ? AND is_active = 1`)
-    .run(id);
-  return result.changes > 0;
+export async function revokeApiKey(id: string): Promise<boolean> {
+  const changes = await execute(
+    `UPDATE api_keys SET is_active = 0, revoked_at = NOW() WHERE id = $1 AND is_active = 1`,
+    [id]
+  );
+  return changes > 0;
 }
 
-export function reactivateApiKey(id: string): boolean {
-  const result = db
-    .prepare(`UPDATE api_keys SET is_active = 1, revoked_at = NULL WHERE id = ? AND is_active = 0`)
-    .run(id);
-  return result.changes > 0;
+export async function reactivateApiKey(id: string): Promise<boolean> {
+  const changes = await execute(
+    `UPDATE api_keys SET is_active = 1, revoked_at = NULL WHERE id = $1 AND is_active = 0`,
+    [id]
+  );
+  return changes > 0;
 }
 
 /**
  * Verifies a raw key against stored hashes. On success, updates
- * last_used_at (best-effort, not awaited by callers) and returns the
- * matching record. Returns undefined for unknown, revoked, or malformed keys.
+ * last_used_at (best-effort) and returns the matching record.
  */
-export function verifyApiKey(rawKey: string): ApiKeyRecord | undefined {
+export async function verifyApiKey(rawKey: string): Promise<ApiKeyRecord | undefined> {
   if (!rawKey.startsWith("sk_live_")) return undefined;
 
   const hash = hashKey(rawKey);
-  const row = db
-    .prepare(`SELECT ${SAFE_COLUMNS} FROM api_keys WHERE key_hash = ? AND is_active = 1`)
-    .get(hash) as ApiKeyRecord | undefined;
+  const row = await queryOne<ApiKeyRecord>(
+    `SELECT ${SAFE_COLUMNS} FROM api_keys WHERE key_hash = $1 AND is_active = 1`,
+    [hash]
+  );
 
   if (row) {
-    db.prepare(`UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?`).run(row.id);
+    await execute(`UPDATE api_keys SET last_used_at = NOW() WHERE id = $1`, [row.id]);
   }
 
-  return row;
+  return row ? serializeRow(row) : undefined;
 }

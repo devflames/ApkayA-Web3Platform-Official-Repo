@@ -26,15 +26,40 @@ pulling from the same Postgres/SQLite-backed queue).
 
 ## Run locally
 
+### Option A — Docker (recommended)
+
+```bash
+# from the repo root
+docker compose up postgres -d
+```
+
+### Option B — Native PostgreSQL (Windows / macOS / Linux)
+
+If PostgreSQL is already installed locally, reset the project database (does **not**
+migrate old SQLite data):
+
+```powershell
+# PowerShell — set your postgres superuser password, then:
+$env:POSTGRES_SUPER_PASSWORD = "your-postgres-install-password"
+.\apps\engine\scripts\setup-postgres.ps1
+```
+
+This drops and recreates the `engine` database and `apkaya` role. To fully
+reinstall PostgreSQL 17 on Windows instead, add `-ReinstallServer` (requires
+administrator shell).
+
+### Start Engine
+
 ```bash
 cd apps/engine
 cp .env.example .env
-# generate real values for WALLET_ENCRYPTION_KEY and ENGINE_ADMIN_KEY:
-openssl rand -hex 32   # run twice, paste into .env
+# fill ENGINE_ADMIN_KEY, WALLET_ENCRYPTION_KEY (openssl rand -hex 32)
+# DATABASE_URL=postgres://apkaya:apkaya@localhost:5432/engine
 
 npm install
-npm run dev       # starts the API server on :3005
-npm run worker     # in a second terminal — starts the tx worker
+npm run migrate        # optional — migrations also run on API/worker start
+npm run dev            # API on :3005
+npm run worker         # second terminal — tx worker
 ```
 
 Then issue your first customer key:
@@ -148,10 +173,10 @@ CHAIN_8453_NAME=Base
 
 ## Production hardening checklist (not yet done in this v0)
 
-- [ ] Swap SQLite for Postgres (schema in `src/db/schema.sql` is written to port cleanly)
+- [x] Swap SQLite for Postgres — `DATABASE_URL` + `migrations/` via node-pg-migrate
 - [x] ~~Replace the static `ENGINE_ACCESS_KEYS` allowlist with the `api_keys` table~~ — done. `ENGINE_ACCESS_KEYS` is now a legacy fallback only; leave it unset once you're issuing real keys.
 - [ ] Move backend wallet keys from local AES-encrypted storage to a KMS (AWS KMS / GCP KMS / HashiCorp Vault)
-- [ ] Per-wallet nonce manager (in-memory queue) instead of relying on `getTransactionCount("pending")` under heavy concurrent load on the same wallet
+- [x] Per-wallet nonce manager — in-memory per-worker allocator in `src/services/nonceManager.ts`, seeded from chain pending count, with periodic reconciliation
 - [ ] Webhook retry queue with exponential backoff (currently single-attempt, best-effort)
 - [ ] Per-API-key rate limiting (currently global IP-based only) — `req.apiKeyId` is already available in route handlers for this
 - [ ] Key rotation flow (issue new + grace-period-revoke old) and scoped permissions per key (e.g. read-only keys)

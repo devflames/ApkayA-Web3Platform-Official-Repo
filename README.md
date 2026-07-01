@@ -44,9 +44,12 @@ packages/
 # @apkaya/sdk into the dashboard via the npm workspace
 npm install
 
-cd apps/engine && npm run dev      # terminal 1
-cd apps/engine && npm run worker    # terminal 2
-cd apps/dashboard && npm run dev    # terminal 3 — opens on :5173
+docker compose up postgres -d
+
+cd apps/engine && cp .env.example .env   # set WALLET_ENCRYPTION_KEY, ENGINE_ADMIN_KEY
+cd apps/engine && npm run dev            # terminal 1 — API on :3005
+cd apps/engine && npm run worker         # terminal 2 — tx worker
+cd apps/dashboard && npm run dev         # terminal 3 — opens on :5173
 ```
 Then open the dashboard, go to **Settings**, and point it at your Engine
 instance (`http://localhost:3005` + one of your `ENGINE_ACCESS_KEYS` values).

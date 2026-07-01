@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { verifyApiKey } from "../services/apiKeys.js";
 
-// Augment Express's Request type so downstream handlers can read who called.
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -16,15 +15,7 @@ function extractBearerToken(req: Request): string | null {
   return header?.startsWith("Bearer ") ? header.slice(7) : null;
 }
 
-/**
- * Auth for all regular Engine endpoints (wallets, transactions, chains).
- * Checks, in order:
- *   1. The database-backed api_keys table (hashed, revocable, per-customer).
- *   2. The legacy ENGINE_ACCESS_KEYS static allowlist, kept only for
- *      backward compatibility with v0 setups that haven't issued DB keys
- *      yet. New integrations should use `apkaya apikey create` instead.
- */
-export function requireApiKey(req: Request, res: Response, next: NextFunction): void {
+export async function requireApiKey(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = extractBearerToken(req);
 
   if (!token) {
@@ -32,7 +23,7 @@ export function requireApiKey(req: Request, res: Response, next: NextFunction): 
     return;
   }
 
-  const dbKey = verifyApiKey(token);
+  const dbKey = await verifyApiKey(token);
   if (dbKey) {
     req.apiKeyId = dbKey.id;
     next();
@@ -48,12 +39,6 @@ export function requireApiKey(req: Request, res: Response, next: NextFunction): 
   res.status(401).json({ error: "Invalid or revoked API key." });
 }
 
-/**
- * Auth for key-management endpoints (/api-key/*). Requires the single
- * master ENGINE_ADMIN_KEY, never a customer-issued key — this avoids the
- * chicken-and-egg problem of needing a DB key to create DB keys, and keeps
- * customer keys unable to mint or revoke other keys even if leaked.
- */
 export function requireAdminKey(req: Request, res: Response, next: NextFunction): void {
   const token = extractBearerToken(req);
   const adminKey = process.env.ENGINE_ADMIN_KEY;

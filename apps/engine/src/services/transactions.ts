@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
-import { db } from "../db/index.js";
+import { execute, query, queryOne } from "../db/index.js";
+import { serializeRow, serializeRows } from "../db/serialize.js";
 
 export interface EnqueueTxInput {
   chainId: number;
@@ -37,130 +38,144 @@ export interface TransactionRecord {
 
 /**
  * Enqueues a transaction. If an idempotencyKey is supplied and already
- * exists, returns the existing record instead of creating a duplicate —
- * this lets API clients safely retry on network failure.
+ * exists, returns the existing record instead of creating a duplicate.
  */
-export function enqueueTransaction(input: EnqueueTxInput): TransactionRecord {
+export async function enqueueTransaction(input: EnqueueTxInput): Promise<TransactionRecord> {
   if (input.idempotencyKey) {
-    const existing = db
-      .prepare(`SELECT * FROM transactions WHERE idempotency_key = ?`)
-      .get(input.idempotencyKey) as TransactionRecord | undefined;
-    if (existing) return existing;
+    const existing = await queryOne<TransactionRecord>(
+      `SELECT * FROM transactions WHERE idempotency_key = $1`,
+      [input.idempotencyKey]
+    );
+    if (existing) return serializeRow(existing);
   }
 
   const id = nanoid();
 
-  db.prepare(
+  await execute(
     `INSERT INTO transactions
       (id, idempotency_key, chain_id, from_wallet_id, to_address, data, value_wei, extra_metadata)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    input.idempotencyKey ?? null,
-    input.chainId,
-    input.fromWalletId,
-    input.toAddress,
-    input.data ?? "0x",
-    input.valueWei ?? "0",
-    input.metadata ? JSON.stringify(input.metadata) : null
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      id,
+      input.idempotencyKey ?? null,
+      input.chainId,
+      input.fromWalletId,
+      input.toAddress,
+      input.data ?? "0x",
+      input.valueWei ?? "0",
+      input.metadata ? JSON.stringify(input.metadata) : null,
+    ]
   );
 
-  return getTransaction(id)!;
+  const tx = await getTransaction(id);
+  if (!tx) throw new Error("Failed to enqueue transaction.");
+  return tx;
 }
 
-export function getTransaction(id: string): TransactionRecord | undefined {
-  return db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(id) as
-    | TransactionRecord
-    | undefined;
+export async function getTransaction(id: string): Promise<TransactionRecord | undefined> {
+  const row = await queryOne<TransactionRecord>(`SELECT * FROM transactions WHERE id = $1`, [id]);
+  return row ? serializeRow(row) : undefined;
 }
 
-export function listTransactions(filters: {
+export async function listTransactions(filters: {
   status?: string;
   walletId?: string;
   chainId?: number;
   limit?: number;
-}): TransactionRecord[] {
+}): Promise<TransactionRecord[]> {
   const clauses: string[] = [];
   const params: unknown[] = [];
+  let paramIndex = 1;
 
   if (filters.status) {
-    clauses.push("status = ?");
+    clauses.push(`status = $${paramIndex++}`);
     params.push(filters.status);
   }
   if (filters.walletId) {
-    clauses.push("from_wallet_id = ?");
+    clauses.push(`from_wallet_id = $${paramIndex++}`);
     params.push(filters.walletId);
   }
   if (filters.chainId) {
-    clauses.push("chain_id = ?");
+    clauses.push(`chain_id = $${paramIndex++}`);
     params.push(filters.chainId);
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const limit = Math.min(filters.limit ?? 50, 200);
+  params.push(limit);
 
-  return db
-    .prepare(`SELECT * FROM transactions ${where} ORDER BY created_at DESC LIMIT ?`)
-    .all(...params, limit) as TransactionRecord[];
+  const rows = await query<TransactionRecord>(
+    `SELECT * FROM transactions ${where} ORDER BY created_at DESC LIMIT $${paramIndex}`,
+    params
+  );
+  return serializeRows(rows);
 }
 
 /** Marks a queued transaction as cancelled. No-op (returns false) if it has already been sent. */
-export function cancelTransaction(id: string): boolean {
-  const result = db
-    .prepare(`UPDATE transactions SET status = 'cancelled', updated_at = datetime('now')
-              WHERE id = ? AND status = 'queued'`)
-    .run(id);
-  return result.changes > 0;
+export async function cancelTransaction(id: string): Promise<boolean> {
+  const changes = await execute(
+    `UPDATE transactions SET status = 'cancelled', updated_at = NOW()
+     WHERE id = $1 AND status = 'queued'`,
+    [id]
+  );
+  return changes > 0;
 }
 
-/** Pulls the oldest queued transactions for the worker to process, oldest-first (FIFO per wallet). */
-export function claimQueuedTransactions(limit: number): TransactionRecord[] {
-  return db
-    .prepare(`SELECT * FROM transactions WHERE status = 'queued' ORDER BY created_at ASC LIMIT ?`)
-    .all(limit) as TransactionRecord[];
+/** Pulls the oldest queued transactions for the worker to process. */
+export async function claimQueuedTransactions(limit: number): Promise<TransactionRecord[]> {
+  const rows = await query<TransactionRecord>(
+    `SELECT * FROM transactions WHERE status = 'queued' ORDER BY created_at ASC LIMIT $1`,
+    [limit]
+  );
+  return serializeRows(rows);
 }
 
-export function markSent(
+export async function markSent(
   id: string,
   fields: { txHash: string; nonce: number; gasLimit: string; maxFeePerGas: string; maxPriorityFee: string }
-): void {
-  db.prepare(
+): Promise<void> {
+  await execute(
     `UPDATE transactions
-     SET status = 'sent', tx_hash = ?, nonce = ?, gas_limit = ?, max_fee_per_gas = ?,
-         max_priority_fee = ?, sent_at = datetime('now'), updated_at = datetime('now')
-     WHERE id = ?`
-  ).run(fields.txHash, fields.nonce, fields.gasLimit, fields.maxFeePerGas, fields.maxPriorityFee, id);
+     SET status = 'sent', tx_hash = $1, nonce = $2, gas_limit = $3, max_fee_per_gas = $4,
+         max_priority_fee = $5, sent_at = NOW(), updated_at = NOW()
+     WHERE id = $6`,
+    [fields.txHash, fields.nonce, fields.gasLimit, fields.maxFeePerGas, fields.maxPriorityFee, id]
+  );
 }
 
-export function markMined(id: string, blockNumber: number): void {
-  db.prepare(
+export async function markMined(id: string, blockNumber: number): Promise<void> {
+  await execute(
     `UPDATE transactions
-     SET status = 'mined', block_number = ?, mined_at = datetime('now'), updated_at = datetime('now')
-     WHERE id = ?`
-  ).run(blockNumber, id);
+     SET status = 'mined', block_number = $1, mined_at = NOW(), updated_at = NOW()
+     WHERE id = $2`,
+    [blockNumber, id]
+  );
 }
 
-export function markReverted(id: string, blockNumber: number): void {
-  db.prepare(
+export async function markReverted(id: string, blockNumber: number): Promise<void> {
+  await execute(
     `UPDATE transactions
-     SET status = 'reverted', block_number = ?, mined_at = datetime('now'), updated_at = datetime('now')
-     WHERE id = ?`
-  ).run(blockNumber, id);
+     SET status = 'reverted', block_number = $1, mined_at = NOW(), updated_at = NOW()
+     WHERE id = $2`,
+    [blockNumber, id]
+  );
 }
 
-export function markErrored(id: string, errorMessage: string, incrementRetry: boolean): void {
-  db.prepare(
+export async function markErrored(id: string, errorMessage: string, incrementRetry: boolean): Promise<void> {
+  await execute(
     `UPDATE transactions
-     SET status = 'errored', error_message = ?, updated_at = datetime('now'),
-         retry_count = retry_count + ?
-     WHERE id = ?`
-  ).run(errorMessage, incrementRetry ? 1 : 0, id);
+     SET status = 'errored', error_message = $1, updated_at = NOW(),
+         retry_count = retry_count + $2
+     WHERE id = $3`,
+    [errorMessage, incrementRetry ? 1 : 0, id]
+  );
 }
 
-export function requeueForRetry(id: string): void {
-  db.prepare(
+export async function requeueForRetry(id: string): Promise<void> {
+  await execute(
     `UPDATE transactions
-     SET status = 'queued', updated_at = datetime('now'), retry_count = retry_count + 1
-     WHERE id = ?`
-  ).run(id);
+     SET status = 'queued', updated_at = NOW(), retry_count = retry_count + 1
+     WHERE id = $1`,
+    [id]
+  );
 }
