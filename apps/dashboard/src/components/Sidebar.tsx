@@ -6,6 +6,7 @@ const links = [
   { to: "/wallets", label: "Backend Wallets" },
   { to: "/transactions", label: "Transactions" },
   { to: "/contracts", label: "Contracts" },
+  { to: "/bridge", label: "Payments" },
   { to: "/api-keys", label: "API Keys" },
   { to: "/chains", label: "Chains" },
   { to: "/settings", label: "Settings" },

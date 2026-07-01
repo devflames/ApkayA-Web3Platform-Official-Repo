@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@apkaya/bridge": "*",
     "@apkaya/connect": "*",
     "@apkaya/sdk": "*",
     "react": "^18.3.1",

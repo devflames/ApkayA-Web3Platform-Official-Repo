@@ -328,4 +328,54 @@ export class ApkayaClient {
         body: JSON.stringify(input),
       }),
   };
+
+  bridge = {
+    supported: () =>
+      this.request<{
+        cdpConfigured: boolean;
+        swapNetworks: string[];
+        onrampAssets: string[];
+        onrampChains: Array<{ chainId: number; name: string; rpcUrl?: string }>;
+        swapChains: Array<{ chainId: number; name: string; rpcUrl?: string }>;
+        swapTokens: Record<string, Array<{ symbol: string; address: string; decimals: number; isNative?: boolean }>>;
+      }>("/bridge/supported"),
+
+    onrampSession: (input: {
+      address: string;
+      chainId: number;
+      assets?: string[];
+      clientIp: string;
+      presetFiatAmount?: number;
+    }) =>
+      this.request<{ token: string; popupUrl: string; expiresInSeconds: number }>(
+        "/bridge/onramp/session",
+        { method: "POST", body: JSON.stringify(input) }
+      ),
+
+    swapQuote: (input: {
+      chainId: number;
+      fromToken: string;
+      toToken: string;
+      fromAmount: string;
+      taker: string;
+      slippageBps?: number;
+    }) =>
+      this.request<Record<string, unknown>>("/bridge/swap/quote", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    swapExecute: (input: {
+      chainId: number;
+      fromToken: string;
+      toToken: string;
+      fromAmount: string;
+      taker: string;
+      slippageBps?: number;
+    }) =>
+      this.request<Record<string, unknown>>("/bridge/swap/execute", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+  };
 }

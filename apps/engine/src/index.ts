@@ -13,6 +13,7 @@ import { transactionRouter } from "./routes/transactions.js";
 import { chainRouter } from "./routes/chains.js";
 import { contractRouter } from "./routes/contracts.js";
 import { authRouter } from "./routes/auth.js";
+import { bridgeRouter } from "./routes/bridge.js";
 import { apiKeyRouter } from "./routes/apiKeys.js";
 
 const log = pino({ level: process.env.LOG_LEVEL || "info", name: "engine" });
@@ -41,6 +42,7 @@ app.use("/transaction", requireApiKey, rateLimitByApiKey, transactionRouter);
 app.use("/chain", requireApiKey, rateLimitByApiKey, chainRouter);
 app.use("/contract", requireApiKey, rateLimitByApiKey, contractRouter);
 app.use("/auth", requireApiKey, rateLimitByApiKey, authRouter);
+app.use("/bridge", requireApiKey, rateLimitByApiKey, bridgeRouter);
 app.use("/api-key", requireAdminKey, apiKeyRouter);
 
 app.use((req, res) => {

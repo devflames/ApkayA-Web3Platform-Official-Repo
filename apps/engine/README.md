@@ -210,6 +210,21 @@ app's Bearer API key; end-user sessions are issued as JWTs via
 Env: `SESSION_JWT_SECRET` (required), `SESSION_JWT_TTL_SECONDS` (default 7d),
 `ENGINE_AUTH_DEV_LOG_OTP=true` for local OTP logging.
 
+### Bridge (CDP)
+
+Coinbase Developer Platform integration for buy/swap widgets. **CDP secrets are server-only.**
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/bridge/supported` | CDP config status + chain/token metadata for widgets |
+| POST | `/bridge/onramp/session` | Create CDP onramp session token + popup URL. Body: `{ address, chainId, clientIp, assets?, presetFiatAmount? }` |
+| POST | `/bridge/swap/quote` | CDP swap quote (201). Body: `{ chainId, fromToken, toToken, fromAmount, taker, slippageBps? }` |
+| POST | `/bridge/swap/execute` | Fresh quote for signing (BYO wallet). Same body as quote — never cache quotes |
+
+Env: `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` (CDP Secret API Key from portal.cdp.coinbase.com).
+
+Swap mainnets: Ethereum, Base, Arbitrum, Optimism, Polygon (see `@apkaya/bridge` README).
+
 ## Transaction lifecycle
 
 `queued → sent → mined`
@@ -235,7 +250,7 @@ Webhook event fields: `attempts`, `next_attempt_at`, `last_error`,
 
 ## Rate limiting
 
-Customer API routes (`/backend-wallet`, `/transaction`, `/chain`, `/contract`, `/auth`) are limited
+Customer API routes (`/backend-wallet`, `/transaction`, `/chain`, `/contract`, `/auth`, `/bridge`) are limited
 per API key using a fixed one-minute window. The default limit comes from
 `DEFAULT_API_KEY_RATE_LIMIT_PER_MINUTE` (default **120**). Override per key via
 `api_keys.rate_limit_per_minute` or `POST /api-key/:id/rate-limit`. Legacy

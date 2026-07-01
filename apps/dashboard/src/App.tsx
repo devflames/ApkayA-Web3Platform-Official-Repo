@@ -8,6 +8,7 @@ import { ApiKeys } from "./pages/ApiKeys";
 import { Chains } from "./pages/Chains";
 import { Contracts } from "./pages/Contracts";
 import { ContractDetail } from "./pages/ContractDetail";
+import { Bridge } from "./pages/Bridge";
 import { Settings } from "./pages/Settings";
 
 export function App() {
@@ -24,6 +25,7 @@ export function App() {
             <Route path="/chains" element={<Chains />} />
             <Route path="/contracts" element={<Contracts />} />
             <Route path="/contracts/:id" element={<ContractDetail />} />
+            <Route path="/bridge" element={<Bridge />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>

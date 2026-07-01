@@ -30,6 +30,7 @@ packages/
    browse registered contracts (read/write via ABI), and watch the queue drain. ✅ done
 5. **CLI** — scaffolding + deploy convenience commands. ✅ done (`apkaya login/create/deploy/wallet/tx/apikey`)
 6. **Connect** — end-user wallet modal + in-app email wallet + SIWE. ✅ done (Phase 4)
+7. **Bridge** — BuyWidget / SwapWidget via Coinbase CDP. ✅ done (Phase 4B)
 
 ## Beyond v0
 
