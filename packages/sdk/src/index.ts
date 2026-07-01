@@ -248,4 +248,84 @@ export class ApkayaClient {
         body: JSON.stringify({ rateLimitPerMinute }),
       }),
   };
+
+  auth = {
+    siweNonce: (input: {
+      address: string;
+      chainId: number;
+      domain: string;
+      uri: string;
+      statement?: string;
+    }) =>
+      this.request<{ nonce: string; message: string; expiresAt: string }>("/auth/siwe/nonce", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    siweVerify: (input: { message: string; signature: string }) =>
+      this.request<{
+        sessionToken: string;
+        expiresAt: string;
+        address: string;
+        authMethod: string;
+        endUserId: string;
+        backendWalletId: string | null;
+      }>("/auth/siwe/verify", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    emailRequestCode: (email: string) =>
+      this.request<{ expiresAt: string; devCode?: string }>("/auth/email/request-code", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+
+    emailVerifyCode: (input: { email: string; code: string }) =>
+      this.request<{
+        sessionToken: string;
+        expiresAt: string;
+        address: string;
+        authMethod: string;
+        endUserId: string;
+        backendWalletId: string | null;
+      }>("/auth/email/verify-code", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    session: (sessionToken: string) =>
+      this.request<{
+        endUserId: string;
+        address: string;
+        authMethod: string;
+        backendWalletId: string | null;
+        email: string | null;
+      }>("/auth/session", {
+        headers: { "X-Apkaya-Session": sessionToken },
+      }),
+
+    inAppSignMessage: (sessionToken: string, message: string) =>
+      this.request<{ signature: string }>("/auth/in-app/sign-message", {
+        method: "POST",
+        headers: { "X-Apkaya-Session": sessionToken },
+        body: JSON.stringify({ message }),
+      }),
+
+    inAppSendTransaction: (
+      sessionToken: string,
+      input: {
+        chainId: number;
+        toAddress: string;
+        data?: string;
+        valueWei?: string;
+        idempotencyKey?: string;
+      }
+    ) =>
+      this.request<TransactionRecord>("/auth/in-app/send-transaction", {
+        method: "POST",
+        headers: { "X-Apkaya-Session": sessionToken },
+        body: JSON.stringify(input),
+      }),
+  };
 }

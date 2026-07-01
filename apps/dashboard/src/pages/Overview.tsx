@@ -1,15 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ConnectProvider, ConnectButton } from "@apkaya/connect/react";
+import "@apkaya/connect/styles.css";
 import { useSettings } from "../context/SettingsContext";
 import { PipelineRail } from "../components/PipelineRail";
 import type { TransactionRecord, BackendWallet } from "@apkaya/sdk";
 
 export function Overview() {
-  const { client, isConfigured } = useSettings();
+  const { client, isConfigured, settings } = useSettings();
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [wallets, setWallets] = useState<BackendWallet[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const connectConfig = useMemo(
+    () => ({
+      chainId: 80002,
+      engine: {
+        baseUrl: settings.baseUrl,
+        apiKey: settings.apiKey,
+      },
+      siwe: {
+        domain: typeof window !== "undefined" ? window.location.host : "localhost",
+        uri: typeof window !== "undefined" ? window.location.origin : "http://localhost:5173",
+        statement: "Sign in to the ApkayA dashboard Connect demo.",
+      },
+    }),
+    [settings.baseUrl, settings.apiKey]
+  );
 
   useEffect(() => {
     if (!isConfigured) {
@@ -111,6 +129,17 @@ export function Overview() {
           </div>
           <div style={{ fontSize: 24, fontFamily: "var(--font-display)" }}>{transactions.length}</div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 24 }}>
+        <h3 style={{ fontSize: 15, marginBottom: 8 }}>@apkaya/connect demo</h3>
+        <p style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 16 }}>
+          End-user wallet modal (injected, WalletConnect, email in-app wallet). This dogfoods the shared
+          theme contract — not required for operating Engine itself.
+        </p>
+        <ConnectProvider config={connectConfig}>
+          <ConnectButton />
+        </ConnectProvider>
       </div>
     </div>
   );

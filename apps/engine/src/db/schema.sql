@@ -1,4 +1,5 @@
 -- Historical reference schema (SQLite v0).
 -- Live Postgres schema is managed by migrations in ../../migrations/.
 -- Latest: 1738368000000_initial-schema, 1738400000000_phase2-webhook-retry-rate-limits,
---         1738500000000_phase3-deployed-contracts
+--         1738500000000_phase3-deployed-contracts,
+--         1738600000000_phase4-end-user-auth

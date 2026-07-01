@@ -190,6 +190,28 @@ the caller does not wait for on-chain confirmation in this call.
 ```
 
 
+### End-user auth (Connect / SIWE)
+
+Separate from developer API-key auth. All `/auth/*` routes still require your
+app's Bearer API key; end-user sessions are issued as JWTs via
+`X-Apkaya-Session` on in-app wallet operations.
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/auth/siwe/nonce` | Generate EIP-4361 SIWE message. Body: `{ address, chainId, domain, uri, statement? }` |
+| POST | `/auth/siwe/verify` | Verify SIWE signature → session JWT |
+| POST | `/auth/email/request-code` | Send email OTP (dev: set `ENGINE_AUTH_DEV_LOG_OTP=true`) |
+| POST | `/auth/email/verify-code` | Verify OTP → creates in-app wallet + session JWT |
+| GET | `/auth/session` | Current session info (requires `X-Apkaya-Session`) |
+| POST | `/auth/in-app/sign-message` | Sign with custody wallet (email sessions only) |
+| POST | `/auth/in-app/send-transaction` | Queue tx from custody wallet → `202` |
+| GET | `/auth/in-app/wallet` | Address for current session |
+
+Env: `SESSION_JWT_SECRET` (required), `SESSION_JWT_TTL_SECONDS` (default 7d),
+`ENGINE_AUTH_DEV_LOG_OTP=true` for local OTP logging.
+
+## Transaction lifecycle
+
 `queued → sent → mined`
 `queued → sent → reverted` (on-chain failure)
 `queued → errored` (failed to broadcast after `TX_WORKER_MAX_RETRIES` attempts)
@@ -213,7 +235,7 @@ Webhook event fields: `attempts`, `next_attempt_at`, `last_error`,
 
 ## Rate limiting
 
-Customer API routes (`/backend-wallet`, `/transaction`, `/chain`, `/contract`) are limited
+Customer API routes (`/backend-wallet`, `/transaction`, `/chain`, `/contract`, `/auth`) are limited
 per API key using a fixed one-minute window. The default limit comes from
 `DEFAULT_API_KEY_RATE_LIMIT_PER_MINUTE` (default **120**). Override per key via
 `api_keys.rate_limit_per_minute` or `POST /api-key/:id/rate-limit`. Legacy
