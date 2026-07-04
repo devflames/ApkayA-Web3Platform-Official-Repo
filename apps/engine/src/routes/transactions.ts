@@ -7,19 +7,42 @@ import {
   cancelTransaction,
 } from "../services/transactions.js";
 import { getBackendWallet } from "../services/wallets.js";
-import { listChains } from "../services/chains.js";
+import { findChain } from "../services/chains.js";
+import {
+  resolveChainRef,
+  validateAddressForFamily,
+  parseChainFamily,
+  normalizeChainIdInput,
+} from "../services/chainRef.js";
 
 export const transactionRouter = Router();
 
-const sendSchema = z.object({
-  chainId: z.number().int().positive(),
-  fromWalletId: z.string().min(1),
-  toAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "toAddress must be a valid EVM address"),
-  data: z.string().regex(/^0x[a-fA-F0-9]*$/).optional(),
-  valueWei: z.string().regex(/^\d+$/).optional(),
-  idempotencyKey: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
-});
+const chainIdInput = z.union([z.string().min(1), z.number().int().positive()]);
+
+const sendSchema = z
+  .object({
+    chainFamily: z.enum(["evm", "solana"]).optional(),
+    chainId: chainIdInput,
+    fromWalletId: z.string().min(1),
+    toAddress: z.string().min(1),
+    data: z.string().optional(),
+    valueWei: z.string().regex(/^\d+$/).optional(),
+    idempotencyKey: z.string().optional(),
+    metadata: z.record(z.unknown()).optional(),
+  })
+  .superRefine((body, ctx) => {
+    const ref = resolveChainRef(body);
+    if (!validateAddressForFamily(body.toAddress, ref.chainFamily)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `toAddress is not a valid ${ref.chainFamily} address`,
+        path: ["toAddress"],
+      });
+    }
+    if (ref.chainFamily === "evm" && body.data && !/^0x[a-fA-F0-9]*$/.test(body.data)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "data must be hex for EVM", path: ["data"] });
+    }
+  });
 
 transactionRouter.post("/send", async (req, res, next) => {
   try {
@@ -28,13 +51,22 @@ transactionRouter.post("/send", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
     }
 
-    const { chainId, fromWalletId } = parsed.data;
-
-    if (!(await getBackendWallet(fromWalletId))) {
-      return res.status(404).json({ error: `Backend wallet ${fromWalletId} not found` });
+    const chainRef = resolveChainRef(parsed.data);
+    const chain = findChain(chainRef);
+    if (!chain) {
+      return res.status(400).json({
+        error: `Chain ${chainRef.chainFamily}:${chainRef.chainId} is not configured on this Engine instance`,
+      });
     }
-    if (!listChains().some((c) => c.chainId === chainId)) {
-      return res.status(400).json({ error: `Chain ${chainId} is not configured on this Engine instance` });
+
+    const wallet = await getBackendWallet(parsed.data.fromWalletId);
+    if (!wallet) {
+      return res.status(404).json({ error: `Backend wallet ${parsed.data.fromWalletId} not found` });
+    }
+    if (wallet.chain_family !== chainRef.chainFamily) {
+      return res.status(400).json({
+        error: `Wallet chain family (${wallet.chain_family}) does not match transaction chain (${chainRef.chainFamily})`,
+      });
     }
 
     const tx = await enqueueTransaction(parsed.data);
@@ -56,11 +88,13 @@ transactionRouter.get("/status/:id", async (req, res, next) => {
 
 transactionRouter.get("/", async (req, res, next) => {
   try {
-    const { status, walletId, chainId, limit } = req.query;
+    const { status, walletId, chainId, chainFamily, limit } = req.query;
+    const family = typeof chainFamily === "string" ? parseChainFamily(chainFamily) : undefined;
     const result = await listTransactions({
       status: typeof status === "string" ? status : undefined,
       walletId: typeof walletId === "string" ? walletId : undefined,
-      chainId: chainId ? Number(chainId) : undefined,
+      chainFamily: family ?? undefined,
+      chainId: chainId ? normalizeChainIdInput(chainId as string) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
     res.json({ result });

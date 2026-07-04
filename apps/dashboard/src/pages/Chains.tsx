@@ -1,15 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSettings } from "../context/SettingsContext";
-
-interface ChainInfo {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-}
+import type { ChainConfig } from "@apkaya/sdk";
 
 export function Chains() {
   const { client, isConfigured } = useSettings();
-  const [chains, setChains] = useState<ChainInfo[]>([]);
+  const [chains, setChains] = useState<ChainConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +53,8 @@ export function Chains() {
           <div className="empty-state">
             <h3>No chains configured</h3>
             <p>
-              Add <code>CHAIN_&lt;id&gt;_RPC_URL</code> and <code>CHAIN_&lt;id&gt;_NAME</code> to Engine's{" "}
+              Add <code>CHAIN_&lt;id&gt;_RPC_URL</code>, optional <code>CHAIN_&lt;id&gt;_FAMILY</code>{" "}
+              (<code>evm</code> or <code>solana</code>), and <code>CHAIN_&lt;id&gt;_NAME</code> to Engine's{" "}
               <code>.env</code> and restart.
             </p>
           </div>
@@ -66,6 +62,7 @@ export function Chains() {
           <table>
             <thead>
               <tr>
+                <th>Family</th>
                 <th>Chain ID</th>
                 <th>Name</th>
                 <th>RPC URL</th>
@@ -73,7 +70,10 @@ export function Chains() {
             </thead>
             <tbody>
               {chains.map((c) => (
-                <tr key={c.chainId}>
+                <tr key={`${c.chainFamily}:${c.chainId}`}>
+                  <td>
+                    <span className="status-badge">{c.chainFamily}</span>
+                  </td>
                   <td className="mono">{c.chainId}</td>
                   <td style={{ fontWeight: 600 }}>{c.name}</td>
                   <td className="truncate-hash">{c.rpcUrl}</td>

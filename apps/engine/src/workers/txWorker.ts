@@ -1,8 +1,6 @@
 import "dotenv/config";
 import pino from "pino";
-import { getProvider } from "../services/chains.js";
-import { getSignerForWallet } from "../services/wallets.js";
-import { NonceManager } from "../services/nonceManager.js";
+import { getAdapterForRef } from "../adapters/registry.js";
 import { runMigrations } from "../db/index.js";
 import {
   claimQueuedTransactions,
@@ -14,6 +12,7 @@ import {
   type TransactionRecord,
 } from "../services/transactions.js";
 import { fireWebhook } from "../services/webhooks.js";
+import type { ChainRef } from "../services/chainRef.js";
 
 const log = pino({ level: process.env.LOG_LEVEL || "info", name: "tx-worker" });
 
@@ -21,59 +20,51 @@ const POLL_INTERVAL_MS = Number(process.env.TX_WORKER_POLL_INTERVAL_MS ?? 2000);
 const MAX_RETRIES = Number(process.env.TX_WORKER_MAX_RETRIES ?? 3);
 const CONFIRMATION_TIMEOUT_MS = Number(process.env.TX_CONFIRMATION_TIMEOUT_MS ?? 120_000);
 const BATCH_SIZE = 10;
-const nonceManager = new NonceManager((chainId) => getProvider(chainId));
+
+function chainRefFromTx(tx: TransactionRecord): ChainRef {
+  return { chainFamily: tx.chain_family, chainId: tx.chain_id };
+}
 
 async function processTransaction(tx: TransactionRecord): Promise<void> {
-  const provider = getProvider(tx.chain_id);
-  let reservedNonce: number | undefined;
-  let signerAddress: string | undefined;
+  const chainRef = chainRefFromTx(tx);
+  const adapter = getAdapterForRef(chainRef);
 
   try {
-    const signer = await getSignerForWallet(tx.from_wallet_id, tx.chain_id);
-    signerAddress = signer.address;
-
-    const [feeData, nonce, gasEstimate] = await Promise.all([
-      provider.getFeeData(),
-      nonceManager.acquireNonce(tx.chain_id, signer.address),
-      provider
-        .estimateGas({ from: signer.address, to: tx.to_address, data: tx.data, value: BigInt(tx.value_wei) })
-        .catch(() => 100_000n),
-    ]);
-
-    reservedNonce = nonce;
-
-    const maxPriorityFeePerGas = ((feeData.maxPriorityFeePerGas ?? 1_500_000_000n) * 120n) / 100n;
-    const maxFeePerGas = ((feeData.maxFeePerGas ?? 30_000_000_000n) * 120n) / 100n;
-    const gasLimit = (gasEstimate * 120n) / 100n;
-
-    const sent = await signer.sendTransaction({
-      to: tx.to_address,
+    const pending = {
+      chainRef,
+      fromWalletId: tx.from_wallet_id,
+      toAddress: tx.to_address,
       data: tx.data,
-      value: BigInt(tx.value_wei),
-      nonce,
-      gasLimit,
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-    });
+      valueAmount: tx.value_wei,
+      extraMetadata: tx.extra_metadata ? JSON.parse(tx.extra_metadata) : undefined,
+    };
+
+    const sent = await adapter.signAndSend(pending);
 
     await markSent(tx.id, {
-      txHash: sent.hash,
-      nonce,
-      gasLimit: gasLimit.toString(),
-      maxFeePerGas: maxFeePerGas.toString(),
-      maxPriorityFee: maxPriorityFeePerGas.toString(),
+      txHash: sent.txHash,
+      nonce: sent.nonce,
+      gasLimit: sent.gasLimit,
+      maxFeePerGas: sent.maxFeePerGas,
+      maxPriorityFee: sent.maxPriorityFee,
     });
 
-    log.info({ txId: tx.id, hash: sent.hash, chainId: tx.chain_id, nonce }, "transaction sent");
-    await fireWebhook(tx.id, "tx.sent", { hash: sent.hash, chainId: tx.chain_id });
+    log.info(
+      { txId: tx.id, hash: sent.txHash, chainFamily: chainRef.chainFamily, chainId: chainRef.chainId },
+      "transaction sent"
+    );
+    await fireWebhook(tx.id, "tx.sent", {
+      hash: sent.txHash,
+      chainFamily: chainRef.chainFamily,
+      chainId: chainRef.chainId,
+    });
 
-    confirmTransaction(tx.id, sent.hash, tx.chain_id).catch((err) =>
+    confirmTransaction(tx.id, sent.txHash, chainRef, adapter).catch((err) =>
       log.error({ txId: tx.id, err }, "confirmation watcher failed")
     );
   } catch (err) {
-    if (reservedNonce !== undefined && signerAddress) {
-      nonceManager.releaseNonce(tx.chain_id, signerAddress);
-      await nonceManager.reconcile(tx.chain_id, signerAddress);
+    if (adapter.onSendFailure) {
+      await adapter.onSendFailure(chainRef, tx.from_wallet_id).catch(() => undefined);
     }
 
     const message = err instanceof Error ? err.message : String(err);
@@ -88,27 +79,32 @@ async function processTransaction(tx: TransactionRecord): Promise<void> {
   }
 }
 
-async function confirmTransaction(txId: string, hash: string, chainId: number): Promise<void> {
-  const provider = getProvider(chainId);
-
-  const receipt = await Promise.race([
-    provider.waitForTransaction(hash, 1),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), CONFIRMATION_TIMEOUT_MS)),
+async function confirmTransaction(
+  txId: string,
+  hash: string,
+  chainRef: ChainRef,
+  adapter: ReturnType<typeof getAdapterForRef>
+): Promise<void> {
+  const result = await Promise.race([
+    adapter.confirmTx(hash, chainRef),
+    new Promise<{ status: "pending" }>((resolve) =>
+      setTimeout(() => resolve({ status: "pending" }), CONFIRMATION_TIMEOUT_MS)
+    ),
   ]);
 
-  if (!receipt) {
+  if (result.status === "pending") {
     log.warn({ txId, hash }, "confirmation timed out — will remain 'sent' until next check");
     return;
   }
 
-  if (receipt.status === 1) {
-    await markMined(txId, receipt.blockNumber);
-    log.info({ txId, hash, block: receipt.blockNumber }, "transaction mined");
-    await fireWebhook(txId, "tx.mined", { hash, blockNumber: receipt.blockNumber });
-  } else {
-    await markReverted(txId, receipt.blockNumber);
-    log.warn({ txId, hash, block: receipt.blockNumber }, "transaction reverted");
-    await fireWebhook(txId, "tx.reverted", { hash, blockNumber: receipt.blockNumber });
+  if (result.status === "mined" && result.cursor !== undefined) {
+    await markMined(txId, result.cursor);
+    log.info({ txId, hash, cursor: result.cursor }, "transaction mined");
+    await fireWebhook(txId, "tx.mined", { hash, blockNumber: result.cursor });
+  } else if (result.status === "reverted" && result.cursor !== undefined) {
+    await markReverted(txId, result.cursor);
+    log.warn({ txId, hash, cursor: result.cursor }, "transaction reverted");
+    await fireWebhook(txId, "tx.reverted", { hash, blockNumber: result.cursor });
   }
 }
 

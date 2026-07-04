@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "!packages/unity-sdk",
+    "!packages/unreal-sdk"
   ],
   "scripts": {
     "env:sync": "node scripts/sync-env.mjs",

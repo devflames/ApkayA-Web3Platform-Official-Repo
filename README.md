@@ -43,7 +43,8 @@ packages/
 8. **Insight** — EVM event indexer + read API for balances, NFTs, transfers. ✅ done (Phase 5)
 9. **Self-host polish** — docker-compose full stack, QUICKSTART, root `.env`, `npm run dev`. ✅ done (Phase 6)
 10. **Mobile SDKs** — React Native (`@apkaya/mobile-sdk`) + Flutter (`apkaya_flutter_sdk`). ✅ done (Phase 7)
-11. **Game engine SDKs** —  Unity (`packages/unity-sdk`) + Unreal (`packages/unreal-sdk`). ✅ done (Phase 8)
+11. **Game engine SDKs** — Unity (`packages/unity-sdk`) + Unreal (`packages/unreal-sdk`). ✅ done (Phase 8)
+12. **Non-EVM (Solana)** — ChainAdapter refactor, Solana wallets/transfers, Insight slot indexer. ✅ done (Phase 9)
 
 ## Beyond v0
 

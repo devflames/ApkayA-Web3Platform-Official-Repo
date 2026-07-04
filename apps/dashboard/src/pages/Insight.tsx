@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSettings } from "../context/SettingsContext";
-import type { InsightEvent, IndexerChainStatus } from "@apkaya/sdk";
+import type { ChainConfig, InsightEvent, IndexerChainStatus } from "@apkaya/sdk";
 
 function truncate(str: string, len = 10): string {
   if (str.length <= len) return str;
@@ -9,14 +9,34 @@ function truncate(str: string, len = 10): string {
 
 export function Insight() {
   const { client, isConfigured, settings } = useSettings();
-  const [chainId, setChainId] = useState<number>(80002);
+  const [chains, setChains] = useState<ChainConfig[]>([]);
+  const [selectedKey, setSelectedKey] = useState("evm:80002");
   const [transfers, setTransfers] = useState<InsightEvent[]>([]);
   const [status, setStatus] = useState<IndexerChainStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const selected = chains.find((c) => `${c.chainFamily}:${c.chainId}` === selectedKey);
+
   useEffect(() => {
     if (!isConfigured) {
+      setLoading(false);
+      return;
+    }
+    client.chains
+      .list()
+      .then((rows) => {
+        setChains(rows);
+        if (rows.length > 0 && !rows.some((c) => `${c.chainFamily}:${c.chainId}` === selectedKey)) {
+          const first = rows[0]!;
+          setSelectedKey(`${first.chainFamily}:${first.chainId}`);
+        }
+      })
+      .catch(() => undefined);
+  }, [client, isConfigured, selectedKey]);
+
+  useEffect(() => {
+    if (!isConfigured || !selected) {
       setLoading(false);
       return;
     }
@@ -26,7 +46,11 @@ export function Insight() {
     async function load() {
       try {
         const [transferRows, statusRows] = await Promise.all([
-          client.insight.transfers({ chainId, limit: 50 }),
+          client.insight.transfers({
+            chainFamily: selected!.chainFamily,
+            chainId: selected!.chainId,
+            limit: 50,
+          }),
           client.insight.status(),
         ]);
         if (!cancelled) {
@@ -49,7 +73,7 @@ export function Insight() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [client, isConfigured, chainId]);
+  }, [client, isConfigured, selected]);
 
   if (!isConfigured) {
     return (
@@ -62,7 +86,11 @@ export function Insight() {
     );
   }
 
-  const chainStatus = status.find((row) => row.chain_id === chainId);
+  const chainStatus = selected
+    ? status.find(
+        (row) => row.chain_family === selected.chainFamily && row.chain_id === selected.chainId
+      )
+    : undefined;
 
   return (
     <div className="content">
@@ -70,18 +98,23 @@ export function Insight() {
         <div>
           <h1>Insight</h1>
           <div className="subtitle">
-            Indexed ERC20 / ERC721 / ERC1155 transfers from {settings.insightBaseUrl.replace(/^https?:\/\//, "")}
+            Indexed transfers from {settings.insightBaseUrl.replace(/^https?:\/\//, "")}
           </div>
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
-          <label htmlFor="insight-chain">Chain ID</label>
-          <input
+          <label htmlFor="insight-chain">Chain</label>
+          <select
             id="insight-chain"
-            type="number"
-            value={chainId}
-            onChange={(e) => setChainId(Number(e.target.value))}
-            style={{ width: 140 }}
-          />
+            value={selectedKey}
+            onChange={(e) => setSelectedKey(e.target.value)}
+            style={{ minWidth: 200 }}
+          >
+            {chains.map((c) => (
+              <option key={`${c.chainFamily}:${c.chainId}`} value={`${c.chainFamily}:${c.chainId}`}>
+                {c.chainFamily}:{c.chainId} — {c.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -93,9 +126,9 @@ export function Insight() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          Indexer status for chain {chainId}:{" "}
+          Indexer status for {selectedKey}:{" "}
           {chainStatus
-            ? `block ${chainStatus.last_indexed_block} (updated ${chainStatus.updated_at ?? "—"})`
+            ? `cursor ${chainStatus.last_indexed_cursor} (updated ${chainStatus.updated_at ?? "—"})`
             : loading
               ? "loading…"
               : "not indexed yet — start the Insight worker"}
@@ -114,9 +147,9 @@ export function Insight() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Block</th>
+                <th>Block / Slot</th>
                 <th>Event</th>
-                <th>Contract</th>
+                <th>Contract / Mint</th>
                 <th>From</th>
                 <th>To</th>
                 <th>Tx</th>

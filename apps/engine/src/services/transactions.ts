@@ -1,9 +1,12 @@
 import { nanoid } from "nanoid";
 import { execute, query, queryOne } from "../db/index.js";
 import { serializeRow, serializeRows } from "../db/serialize.js";
+import type { ChainFamily } from "./chainRef.js";
+import { resolveChainRef } from "./chainRef.js";
 
 export interface EnqueueTxInput {
-  chainId: number;
+  chainFamily?: ChainFamily;
+  chainId: string | number;
   fromWalletId: string;
   toAddress: string;
   data?: string;
@@ -15,7 +18,8 @@ export interface EnqueueTxInput {
 export interface TransactionRecord {
   id: string;
   idempotency_key: string | null;
-  chain_id: number;
+  chain_family: ChainFamily;
+  chain_id: string;
   from_wallet_id: string;
   to_address: string;
   data: string;
@@ -36,10 +40,6 @@ export interface TransactionRecord {
   block_number: number | null;
 }
 
-/**
- * Enqueues a transaction. If an idempotencyKey is supplied and already
- * exists, returns the existing record instead of creating a duplicate.
- */
 export async function enqueueTransaction(input: EnqueueTxInput): Promise<TransactionRecord> {
   if (input.idempotencyKey) {
     const existing = await queryOne<TransactionRecord>(
@@ -49,19 +49,21 @@ export async function enqueueTransaction(input: EnqueueTxInput): Promise<Transac
     if (existing) return serializeRow(existing);
   }
 
+  const chainRef = resolveChainRef(input);
   const id = nanoid();
 
   await execute(
     `INSERT INTO transactions
-      (id, idempotency_key, chain_id, from_wallet_id, to_address, data, value_wei, extra_metadata)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      (id, idempotency_key, chain_family, chain_id, from_wallet_id, to_address, data, value_wei, extra_metadata)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [
       id,
       input.idempotencyKey ?? null,
-      input.chainId,
+      chainRef.chainFamily,
+      chainRef.chainId,
       input.fromWalletId,
       input.toAddress,
-      input.data ?? "0x",
+      input.data ?? (chainRef.chainFamily === "evm" ? "0x" : ""),
       input.valueWei ?? "0",
       input.metadata ? JSON.stringify(input.metadata) : null,
     ]
@@ -80,7 +82,8 @@ export async function getTransaction(id: string): Promise<TransactionRecord | un
 export async function listTransactions(filters: {
   status?: string;
   walletId?: string;
-  chainId?: number;
+  chainFamily?: ChainFamily;
+  chainId?: string;
   limit?: number;
 }): Promise<TransactionRecord[]> {
   const clauses: string[] = [];
@@ -94,6 +97,10 @@ export async function listTransactions(filters: {
   if (filters.walletId) {
     clauses.push(`from_wallet_id = $${paramIndex++}`);
     params.push(filters.walletId);
+  }
+  if (filters.chainFamily) {
+    clauses.push(`chain_family = $${paramIndex++}`);
+    params.push(filters.chainFamily);
   }
   if (filters.chainId) {
     clauses.push(`chain_id = $${paramIndex++}`);
@@ -111,7 +118,6 @@ export async function listTransactions(filters: {
   return serializeRows(rows);
 }
 
-/** Marks a queued transaction as cancelled. No-op (returns false) if it has already been sent. */
 export async function cancelTransaction(id: string): Promise<boolean> {
   const changes = await execute(
     `UPDATE transactions SET status = 'cancelled', updated_at = NOW()
@@ -121,7 +127,6 @@ export async function cancelTransaction(id: string): Promise<boolean> {
   return changes > 0;
 }
 
-/** Pulls the oldest queued transactions for the worker to process. */
 export async function claimQueuedTransactions(limit: number): Promise<TransactionRecord[]> {
   const rows = await query<TransactionRecord>(
     `SELECT * FROM transactions WHERE status = 'queued' ORDER BY created_at ASC LIMIT $1`,
@@ -132,14 +137,27 @@ export async function claimQueuedTransactions(limit: number): Promise<Transactio
 
 export async function markSent(
   id: string,
-  fields: { txHash: string; nonce: number; gasLimit: string; maxFeePerGas: string; maxPriorityFee: string }
+  fields: {
+    txHash: string;
+    nonce?: number;
+    gasLimit?: string;
+    maxFeePerGas?: string;
+    maxPriorityFee?: string;
+  }
 ): Promise<void> {
   await execute(
     `UPDATE transactions
      SET status = 'sent', tx_hash = $1, nonce = $2, gas_limit = $3, max_fee_per_gas = $4,
          max_priority_fee = $5, sent_at = NOW(), updated_at = NOW()
      WHERE id = $6`,
-    [fields.txHash, fields.nonce, fields.gasLimit, fields.maxFeePerGas, fields.maxPriorityFee, id]
+    [
+      fields.txHash,
+      fields.nonce ?? null,
+      fields.gasLimit ?? null,
+      fields.maxFeePerGas ?? null,
+      fields.maxPriorityFee ?? null,
+      id,
+    ]
   );
 }
 

@@ -6,7 +6,7 @@ import { upsertEmailEndUser, upsertSiweEndUser } from "../services/endUsers.js";
 import { requireSession } from "../middleware/sessionAuth.js";
 import { getSignerForWallet } from "../services/wallets.js";
 import { enqueueTransaction } from "../services/transactions.js";
-import { listChains } from "../services/chains.js";
+import { findEvmChainByNumericId, listChains } from "../services/chains.js";
 
 export const authRouter = Router();
 
@@ -63,7 +63,7 @@ authRouter.post("/siwe/nonce", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
     }
 
-    if (!listChains().some((c) => c.chainId === parsed.data.chainId)) {
+    if (!findEvmChainByNumericId(parsed.data.chainId)) {
       return res.status(400).json({ error: `Chain ${parsed.data.chainId} is not configured.` });
     }
 
@@ -151,7 +151,8 @@ authRouter.post("/in-app/sign-message", requireSession, async (req, res, next) =
       return res.status(400).json({ error: "In-app signing requires an email-backed wallet session." });
     }
 
-    const chainId = Number(process.env.DEFAULT_CHAIN_ID ?? listChains()[0]?.chainId ?? 1);
+    const defaultChain = listChains().find((c) => c.chainFamily === "evm");
+    const chainId = Number(process.env.DEFAULT_CHAIN_ID ?? defaultChain?.chainId ?? 1);
     const signer = await getSignerForWallet(endUser.backend_wallet_id, chainId);
     const signature = await signer.signMessage(parsed.data.message);
     res.json({ result: { signature } });
@@ -172,11 +173,12 @@ authRouter.post("/in-app/send-transaction", requireSession, async (req, res, nex
       return res.status(400).json({ error: "In-app transactions require an email-backed wallet session." });
     }
 
-    if (!listChains().some((c) => c.chainId === parsed.data.chainId)) {
+    if (!findEvmChainByNumericId(parsed.data.chainId)) {
       return res.status(400).json({ error: `Chain ${parsed.data.chainId} is not configured.` });
     }
 
     const tx = await enqueueTransaction({
+      chainFamily: "evm",
       chainId: parsed.data.chainId,
       fromWalletId: endUser.backend_wallet_id,
       toAddress: parsed.data.toAddress,

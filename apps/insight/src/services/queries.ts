@@ -1,9 +1,15 @@
 import { query } from "../db/index.js";
 import { normalizeAddress } from "./events.js";
 
+export interface ChainQuery {
+  chainFamily: "evm" | "solana";
+  chainId: string;
+}
+
 export interface IndexedEventRow {
   id: string;
-  chain_id: number;
+  chain_family: string;
+  chain_id: string;
   block_number: string;
   block_hash: string;
   tx_hash: string;
@@ -33,39 +39,68 @@ function parseLimit(raw: string | undefined, fallback = 100): number {
 }
 
 export async function getTokenBalances(
-  chainId: number,
+  chain: ChainQuery,
   address: string
 ): Promise<TokenBalanceRow[]> {
+  if (chain.chainFamily === "solana") {
+    return query<TokenBalanceRow>(
+      `WITH deltas AS (
+         SELECT
+           contract_address,
+           CASE
+             WHEN decoded_args_json->>'to' = $3 THEN (decoded_args_json->>'value')::numeric
+             WHEN decoded_args_json->>'from' = $3 THEN -(decoded_args_json->>'value')::numeric
+             ELSE 0
+           END AS delta
+         FROM events
+         WHERE chain_family = $1 AND chain_id = $2
+           AND event_name IN ('Transfer', 'SolTransfer')
+           AND decoded_args_json ? 'value'
+           AND (decoded_args_json->>'to' = $3 OR decoded_args_json->>'from' = $3)
+       )
+       SELECT contract_address, SUM(delta)::text AS balance
+       FROM deltas
+       GROUP BY contract_address
+       HAVING SUM(delta) > 0
+       ORDER BY contract_address`,
+      [chain.chainFamily, chain.chainId, address]
+    );
+  }
+
   const addr = normalizeAddress(address);
   return query<TokenBalanceRow>(
     `WITH deltas AS (
        SELECT
          contract_address,
          CASE
-           WHEN decoded_args_json->>'to' = $2 THEN (decoded_args_json->>'value')::numeric
-           WHEN decoded_args_json->>'from' = $2 THEN -(decoded_args_json->>'value')::numeric
+           WHEN decoded_args_json->>'to' = $3 THEN (decoded_args_json->>'value')::numeric
+           WHEN decoded_args_json->>'from' = $3 THEN -(decoded_args_json->>'value')::numeric
            ELSE 0
          END AS delta
        FROM events
-       WHERE chain_id = $1
+       WHERE chain_family = $1 AND chain_id = $2
          AND event_name = 'Transfer'
          AND decoded_args_json ? 'value'
-         AND (decoded_args_json->>'to' = $2 OR decoded_args_json->>'from' = $2)
+         AND (decoded_args_json->>'to' = $3 OR decoded_args_json->>'from' = $3)
      )
      SELECT contract_address, SUM(delta)::text AS balance
      FROM deltas
      GROUP BY contract_address
      HAVING SUM(delta) > 0
      ORDER BY contract_address`,
-    [chainId, addr]
+    [chain.chainFamily, chain.chainId, addr]
   );
 }
 
 export async function getNftsOwned(
-  chainId: number,
+  chain: ChainQuery,
   address: string,
   contractAddress?: string
 ): Promise<NftOwnedRow[]> {
+  if (chain.chainFamily !== "evm") {
+    return [];
+  }
+
   const addr = normalizeAddress(address);
   const contractFilter = contractAddress ? normalizeAddress(contractAddress) : null;
 
@@ -75,51 +110,51 @@ export async function getNftsOwned(
        SELECT DISTINCT ON (contract_address, decoded_args_json->>'tokenId')
          contract_address, decoded_args_json, block_number, log_index
        FROM events
-       WHERE chain_id = $1
+       WHERE chain_family = $1 AND chain_id = $2
          AND event_name = 'Transfer'
          AND decoded_args_json ? 'tokenId'
          AND NOT decoded_args_json ? 'value'
-         AND ($3::text IS NULL OR contract_address = $3)
+         AND ($4::text IS NULL OR contract_address = $4)
        ORDER BY contract_address, decoded_args_json->>'tokenId', block_number DESC, log_index DESC
      ) latest
-     WHERE decoded_args_json->>'to' = $2
+     WHERE decoded_args_json->>'to' = $3
      ORDER BY contract_address, token_id`,
-    [chainId, addr, contractFilter]
+    [chain.chainFamily, chain.chainId, addr, contractFilter]
   );
 
   const erc1155Single = await query<{ contract_address: string; token_id: string; delta: string }>(
     `SELECT contract_address, decoded_args_json->>'id' AS token_id,
             SUM(
               CASE
-                WHEN decoded_args_json->>'to' = $2 THEN (decoded_args_json->>'value')::numeric
-                WHEN decoded_args_json->>'from' = $2 THEN -(decoded_args_json->>'value')::numeric
+                WHEN decoded_args_json->>'to' = $3 THEN (decoded_args_json->>'value')::numeric
+                WHEN decoded_args_json->>'from' = $3 THEN -(decoded_args_json->>'value')::numeric
                 ELSE 0
               END
             )::text AS delta
      FROM events
-     WHERE chain_id = $1
+     WHERE chain_family = $1 AND chain_id = $2
        AND event_name = 'TransferSingle'
-       AND ($3::text IS NULL OR contract_address = $3)
-       AND (decoded_args_json->>'to' = $2 OR decoded_args_json->>'from' = $2)
+       AND ($4::text IS NULL OR contract_address = $4)
+       AND (decoded_args_json->>'to' = $3 OR decoded_args_json->>'from' = $3)
      GROUP BY contract_address, decoded_args_json->>'id'
      HAVING SUM(
        CASE
-         WHEN decoded_args_json->>'to' = $2 THEN (decoded_args_json->>'value')::numeric
-         WHEN decoded_args_json->>'from' = $2 THEN -(decoded_args_json->>'value')::numeric
+         WHEN decoded_args_json->>'to' = $3 THEN (decoded_args_json->>'value')::numeric
+         WHEN decoded_args_json->>'from' = $3 THEN -(decoded_args_json->>'value')::numeric
          ELSE 0
        END
      ) > 0`,
-    [chainId, addr, contractFilter]
+    [chain.chainFamily, chain.chainId, addr, contractFilter]
   );
 
   const batchRows = await query<IndexedEventRow>(
     `SELECT contract_address, decoded_args_json
      FROM events
-     WHERE chain_id = $1
+     WHERE chain_family = $1 AND chain_id = $2
        AND event_name = 'TransferBatch'
-       AND ($3::text IS NULL OR contract_address = $3)
-       AND (decoded_args_json->>'to' = $2 OR decoded_args_json->>'from' = $2)`,
-    [chainId, addr, contractFilter]
+       AND ($4::text IS NULL OR contract_address = $4)
+       AND (decoded_args_json->>'to' = $3 OR decoded_args_json->>'from' = $3)`,
+    [chain.chainFamily, chain.chainId, addr, contractFilter]
   );
 
   const erc1155BatchMap = new Map<string, bigint>();
@@ -168,23 +203,29 @@ export async function getNftsOwned(
   return [...erc721, ...erc1155.filter((row) => BigInt(row.balance) > 0n)];
 }
 
-export async function listTransfers(filters: {
-  chainId: number;
-  contractAddress?: string;
-  fromBlock?: number;
-  toBlock?: number;
-  limit?: number;
-}): Promise<IndexedEventRow[]> {
-  const params: unknown[] = [filters.chainId];
+export async function listTransfers(
+  chain: ChainQuery,
+  filters: {
+    contractAddress?: string;
+    fromBlock?: number;
+    toBlock?: number;
+    limit?: number;
+  }
+): Promise<IndexedEventRow[]> {
+  const params: unknown[] = [chain.chainFamily, chain.chainId];
   let sql = `
-    SELECT id::text, chain_id, block_number::text, block_hash, tx_hash, log_index,
+    SELECT id::text, chain_family, chain_id, block_number::text, block_hash, tx_hash, log_index,
            contract_address, event_name, decoded_args_json, indexed_at::text
     FROM events
-    WHERE chain_id = $1
-      AND event_name IN ('Transfer', 'TransferSingle', 'TransferBatch')`;
+    WHERE chain_family = $1 AND chain_id = $2
+      AND event_name IN ('Transfer', 'TransferSingle', 'TransferBatch', 'SolTransfer')`;
 
   if (filters.contractAddress) {
-    params.push(normalizeAddress(filters.contractAddress));
+    params.push(
+      chain.chainFamily === "evm"
+        ? normalizeAddress(filters.contractAddress)
+        : filters.contractAddress
+    );
     sql += ` AND contract_address = $${params.length}`;
   }
   if (filters.fromBlock !== undefined) {
@@ -202,21 +243,27 @@ export async function listTransfers(filters: {
   return query<IndexedEventRow>(sql, params);
 }
 
-export async function listEvents(filters: {
-  chainId: number;
-  contractAddress?: string;
-  eventName?: string;
-  limit?: number;
-}): Promise<IndexedEventRow[]> {
-  const params: unknown[] = [filters.chainId];
+export async function listEvents(
+  chain: ChainQuery,
+  filters: {
+    contractAddress?: string;
+    eventName?: string;
+    limit?: number;
+  }
+): Promise<IndexedEventRow[]> {
+  const params: unknown[] = [chain.chainFamily, chain.chainId];
   let sql = `
-    SELECT id::text, chain_id, block_number::text, block_hash, tx_hash, log_index,
+    SELECT id::text, chain_family, chain_id, block_number::text, block_hash, tx_hash, log_index,
            contract_address, event_name, decoded_args_json, indexed_at::text
     FROM events
-    WHERE chain_id = $1`;
+    WHERE chain_family = $1 AND chain_id = $2`;
 
   if (filters.contractAddress) {
-    params.push(normalizeAddress(filters.contractAddress));
+    params.push(
+      chain.chainFamily === "evm"
+        ? normalizeAddress(filters.contractAddress)
+        : filters.contractAddress
+    );
     sql += ` AND contract_address = $${params.length}`;
   }
   if (filters.eventName) {
@@ -231,11 +278,16 @@ export async function listEvents(filters: {
 }
 
 export async function getIndexerStatus(): Promise<
-  Array<{ chain_id: number; last_indexed_block: string; updated_at: string | null }>
+  Array<{
+    chain_family: string;
+    chain_id: string;
+    last_indexed_cursor: string;
+    updated_at: string | null;
+  }>
 > {
   return query(
-    `SELECT chain_id, last_indexed_block::text, updated_at::text
+    `SELECT chain_family, chain_id, last_indexed_cursor::text, updated_at::text
      FROM indexer_state
-     ORDER BY chain_id`
+     ORDER BY chain_family, chain_id`
   );
 }

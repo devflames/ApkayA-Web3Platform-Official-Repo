@@ -8,7 +8,8 @@ import { getBackendWallet } from "./wallets.js";
 
 export interface DeployedContractRecord {
   id: string;
-  chain_id: number;
+  chain_family: string;
+  chain_id: string;
   address: string;
   name: string;
   abi_json: string;
@@ -95,11 +96,11 @@ export async function registerContract(input: RegisterContractInput): Promise<De
 
   await execute(
     `INSERT INTO deployed_contracts
-      (id, chain_id, address, name, abi_json, deployer_wallet_id, tx_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      (id, chain_family, chain_id, address, name, abi_json, deployer_wallet_id, tx_id)
+     VALUES ($1, 'evm', $2, $3, $4, $5, $6, $7)`,
     [
       id,
-      input.chainId,
+      String(input.chainId),
       input.address,
       input.name,
       abiJson,
@@ -122,14 +123,14 @@ export async function getContract(id: string): Promise<DeployedContractRecord | 
 }
 
 export async function listContracts(filters?: {
-  chainId?: number;
+  chainId?: number | string;
   limit?: number;
 }): Promise<DeployedContractRecord[]> {
   const params: unknown[] = [];
   let where = "";
-  if (filters?.chainId) {
-    where = "WHERE chain_id = $1";
-    params.push(filters.chainId);
+  if (filters?.chainId !== undefined) {
+    where = "WHERE chain_id = $1 AND chain_family = 'evm'";
+    params.push(String(filters.chainId));
   }
   const limit = Math.min(filters?.limit ?? 100, 200);
   params.push(limit);
@@ -158,7 +159,7 @@ export async function readContractFunction(
   }
 
   const coerced = coerceFunctionArgs(fn, args);
-  const provider = getProvider(contract.chain_id);
+  const provider = getProvider({ chainFamily: "evm", chainId: contract.chain_id });
   const runner = new Contract(contract.address, parseAbi(contract.abi_json), provider);
   const raw = await runner.getFunction(functionName).staticCall(...coerced);
 
@@ -201,6 +202,7 @@ export async function writeContractFunction(input: {
   const data = iface.encodeFunctionData(fn, coerced);
 
   return enqueueTransaction({
+    chainFamily: "evm",
     chainId: contract.chain_id,
     fromWalletId: input.fromWalletId,
     toAddress: contract.address,

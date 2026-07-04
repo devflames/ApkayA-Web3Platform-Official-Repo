@@ -9,7 +9,7 @@ import {
   listContractFunctions,
 } from "../services/contracts.js";
 import { getBackendWallet } from "../services/wallets.js";
-import { listChains } from "../services/chains.js";
+import { findEvmChainByNumericId } from "../services/chains.js";
 import { getTransaction } from "../services/transactions.js";
 
 export const contractRouter = Router();
@@ -46,7 +46,7 @@ contractRouter.post("/register", async (req, res, next) => {
 
     const { chainId, deployerWalletId, txId } = parsed.data;
 
-    if (!listChains().some((c) => c.chainId === chainId)) {
+    if (!findEvmChainByNumericId(chainId)) {
       return res.status(400).json({ error: `Chain ${chainId} is not configured on this Engine instance` });
     }
     if (deployerWalletId && !(await getBackendWallet(deployerWalletId))) {

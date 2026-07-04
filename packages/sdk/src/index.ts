@@ -15,18 +15,35 @@ export interface ApkayaClientOptions {
   insightBaseUrl?: string;
 }
 
+export type ChainFamily = "evm" | "solana";
+
+export interface ChainConfig {
+  chainFamily: ChainFamily;
+  chainId: string;
+  name: string;
+  rpcUrl: string;
+  commitment?: string;
+}
+
+export interface ChainRefInput {
+  chainFamily?: ChainFamily;
+  chainId: string | number;
+}
+
 export interface BackendWallet {
   id: string;
   label: string;
   address: string;
   key_type: string;
+  chain_family: ChainFamily;
   created_at: string;
   is_active: number;
 }
 
 export interface TransactionRecord {
   id: string;
-  chain_id: number;
+  chain_family: ChainFamily;
+  chain_id: string;
   from_wallet_id: string;
   to_address: string;
   status: "queued" | "sent" | "mined" | "reverted" | "errored" | "cancelled";
@@ -51,7 +68,8 @@ export interface CreatedApiKey extends ApiKeyRecord {
 }
 
 export interface SendTransactionInput {
-  chainId: number;
+  chainFamily?: ChainFamily;
+  chainId: string | number;
   fromWalletId: string;
   toAddress: string;
   data?: string;
@@ -94,7 +112,8 @@ export interface RegisterContractInput {
 
 export interface InsightEvent {
   id: string;
-  chain_id: number;
+  chain_family: ChainFamily;
+  chain_id: string;
   block_number: string;
   block_hash: string;
   tx_hash: string;
@@ -118,9 +137,37 @@ export interface NftOwned {
 }
 
 export interface IndexerChainStatus {
-  chain_id: number;
-  last_indexed_block: string;
+  chain_family: ChainFamily;
+  chain_id: string;
+  last_indexed_cursor: string;
   updated_at: string | null;
+}
+
+const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
+const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+export function isEvmAddress(address: string): boolean {
+  return EVM_ADDRESS.test(address);
+}
+
+export function isSolanaAddress(address: string): boolean {
+  return SOLANA_ADDRESS.test(address);
+}
+
+export function formatAddress(address: string, family: ChainFamily): string {
+  if (family === "evm") return address.toLowerCase();
+  return address;
+}
+
+export function formatTxHash(hash: string, family: ChainFamily): string {
+  if (family === "evm") return hash.toLowerCase();
+  return hash;
+}
+
+function chainQueryParams(ref: ChainRefInput): URLSearchParams {
+  const params = new URLSearchParams({ chainId: String(ref.chainId) });
+  if (ref.chainFamily) params.set("chainFamily", ref.chainFamily);
+  return params;
 }
 
 class HttpError extends Error {
@@ -163,20 +210,28 @@ export class ApkayaClient {
   }
 
   wallets = {
-    create: (label: string) =>
+    create: (label: string, options?: { chainFamily?: ChainFamily }) =>
       this.request<BackendWallet>("/backend-wallet/create", {
         method: "POST",
-        body: JSON.stringify({ label }),
+        body: JSON.stringify({ label, chainFamily: options?.chainFamily }),
       }),
 
     list: () => this.request<BackendWallet[]>("/backend-wallet"),
 
     get: (id: string) => this.request<BackendWallet>(`/backend-wallet/${id}`),
 
-    balance: (id: string, chainId: number) =>
-      this.request<{ address: string; chainId: number; balanceWei: string }>(
-        `/backend-wallet/${id}/balance?chainId=${chainId}`
-      ),
+    balance: (id: string, chain: ChainRefInput) => {
+      const params = chainQueryParams(chain);
+      return this.request<{
+        address: string;
+        chainFamily: ChainFamily;
+        chainId: string;
+        balance: string;
+        unit: "wei" | "lamports";
+        balanceWei?: string;
+        balanceLamports?: string;
+      }>(`/backend-wallet/${id}/balance?${params}`);
+    },
   };
 
   transactions = {
@@ -188,11 +243,18 @@ export class ApkayaClient {
 
     status: (id: string) => this.request<TransactionRecord>(`/transaction/status/${id}`),
 
-    list: (filters?: { status?: string; walletId?: string; chainId?: number; limit?: number }) => {
+    list: (filters?: {
+      status?: string;
+      walletId?: string;
+      chainFamily?: ChainFamily;
+      chainId?: string | number;
+      limit?: number;
+    }) => {
       const params = new URLSearchParams();
       if (filters?.status) params.set("status", filters.status);
       if (filters?.walletId) params.set("walletId", filters.walletId);
-      if (filters?.chainId) params.set("chainId", String(filters.chainId));
+      if (filters?.chainFamily) params.set("chainFamily", filters.chainFamily);
+      if (filters?.chainId !== undefined) params.set("chainId", String(filters.chainId));
       if (filters?.limit) params.set("limit", String(filters.limit));
       const qs = params.toString();
       return this.request<TransactionRecord[]>(`/transaction${qs ? `?${qs}` : ""}`);
@@ -214,7 +276,7 @@ export class ApkayaClient {
   };
 
   chains = {
-    list: () => this.request<Array<{ chainId: number; name: string; rpcUrl: string }>>("/chain"),
+    list: () => this.request<ChainConfig[]>("/chain"),
   };
 
   contracts = {
@@ -420,15 +482,17 @@ export class ApkayaClient {
   insight = {
     status: () => this.request<IndexerChainStatus[]>("/insight/status", undefined, this.insightBaseUrl),
 
-    tokenBalances: (address: string, chainId: number) =>
-      this.request<TokenBalance[]>(
-        `/insight/tokens/${encodeURIComponent(address)}/balances?chainId=${chainId}`,
+    tokenBalances: (address: string, chain: ChainRefInput) => {
+      const params = chainQueryParams(chain);
+      return this.request<TokenBalance[]>(
+        `/insight/tokens/${encodeURIComponent(address)}/balances?${params}`,
         undefined,
         this.insightBaseUrl
-      ),
+      );
+    },
 
-    nftsOwned: (address: string, filters: { chainId: number; contractAddress?: string }) => {
-      const params = new URLSearchParams({ chainId: String(filters.chainId) });
+    nftsOwned: (address: string, filters: ChainRefInput & { contractAddress?: string }) => {
+      const params = chainQueryParams(filters);
       if (filters.contractAddress) params.set("contractAddress", filters.contractAddress);
       return this.request<NftOwned[]>(
         `/insight/nfts/${encodeURIComponent(address)}/owned?${params}`,
@@ -437,14 +501,13 @@ export class ApkayaClient {
       );
     },
 
-    transfers: (filters: {
-      chainId: number;
+    transfers: (filters: ChainRefInput & {
       contractAddress?: string;
       fromBlock?: number;
       toBlock?: number;
       limit?: number;
     }) => {
-      const params = new URLSearchParams({ chainId: String(filters.chainId) });
+      const params = chainQueryParams(filters);
       if (filters.contractAddress) params.set("contractAddress", filters.contractAddress);
       if (filters.fromBlock !== undefined) params.set("fromBlock", String(filters.fromBlock));
       if (filters.toBlock !== undefined) params.set("toBlock", String(filters.toBlock));
@@ -456,13 +519,12 @@ export class ApkayaClient {
       );
     },
 
-    events: (filters: {
-      chainId: number;
+    events: (filters: ChainRefInput & {
       contractAddress?: string;
       eventName?: string;
       limit?: number;
     }) => {
-      const params = new URLSearchParams({ chainId: String(filters.chainId) });
+      const params = chainQueryParams(filters);
       if (filters.contractAddress) params.set("contractAddress", filters.contractAddress);
       if (filters.eventName) params.set("eventName", filters.eventName);
       if (filters.limit) params.set("limit", String(filters.limit));

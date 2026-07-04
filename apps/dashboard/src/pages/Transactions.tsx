@@ -130,7 +130,12 @@ export function Transactions() {
                   <td>
                     <StatusPill status={tx.status} />
                   </td>
-                  <td style={{ color: "var(--text-dim)" }}>{tx.chain_id}</td>
+                  <td style={{ color: "var(--text-dim)" }}>
+                    <span className="status-badge" style={{ marginRight: 6 }}>
+                      {tx.chain_family as string}
+                    </span>
+                    {tx.chain_id as string}
+                  </td>
                   <td className="truncate-hash">{truncate(tx.to_address as string)}</td>
                   <td className="truncate-hash">{tx.tx_hash ? truncate(tx.tx_hash as string) : "—"}</td>
                   <td style={{ color: "var(--text-dim)" }}>

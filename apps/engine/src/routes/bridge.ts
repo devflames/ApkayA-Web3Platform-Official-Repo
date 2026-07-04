@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { listChains } from "../services/chains.js";
+import { findEvmChainByNumericId, listChains } from "../services/chains.js";
 import { isCdpConfigured } from "../services/cdpAuth.js";
 import { createOnrampSession } from "../services/cdpOnramp.js";
 import { createSwapQuote, executeSwapQuote } from "../services/cdpSwap.js";
@@ -33,8 +33,12 @@ const swapQuoteSchema = z.object({
 
 bridgeRouter.get("/supported", (_req, res) => {
   const engineChains = listChains();
-  const onrampChains = engineChains.filter((c) => ENGINE_CHAIN_TO_CDP_BLOCKCHAIN[c.chainId]);
-  const swapChains = engineChains.filter((c) => isSwapSupportedChain(c.chainId));
+  const onrampChains = engineChains.filter(
+    (c) => c.chainFamily === "evm" && ENGINE_CHAIN_TO_CDP_BLOCKCHAIN[Number(c.chainId)]
+  );
+  const swapChains = engineChains.filter(
+    (c) => c.chainFamily === "evm" && isSwapSupportedChain(Number(c.chainId))
+  );
 
   res.json({
     result: {
@@ -61,7 +65,7 @@ bridgeRouter.post("/onramp/session", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
     }
 
-    if (!listChains().some((c) => c.chainId === parsed.data.chainId)) {
+    if (!findEvmChainByNumericId(parsed.data.chainId)) {
       return res.status(400).json({ error: `Chain ${parsed.data.chainId} is not configured on Engine.` });
     }
 

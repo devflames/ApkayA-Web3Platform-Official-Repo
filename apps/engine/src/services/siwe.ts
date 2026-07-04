@@ -51,9 +51,9 @@ export async function createSiweNonce(input: {
   const expiresAt = new Date(Date.now() + NONCE_TTL_MS).toISOString();
 
   await execute(
-    `INSERT INTO siwe_nonces (nonce, address, chain_id, expires_at)
-     VALUES ($1, $2, $3, $4)`,
-    [nonce, input.address.toLowerCase(), input.chainId, expiresAt]
+    `INSERT INTO siwe_nonces (nonce, address, chain_id, chain_family, expires_at)
+     VALUES ($1, $2, $3, 'evm', $4)`,
+    [nonce, input.address.toLowerCase(), String(input.chainId), expiresAt]
   );
 
   const message = buildSiweMessage({

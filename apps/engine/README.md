@@ -262,11 +262,28 @@ Exceeded limits return **429** with `{ "error": "...", "limitPerMinute": N }`.
 
 ## Adding a new chain
 
-No code change needed — add two env vars and restart:
+No code change needed — add env vars and restart.
+
+**EVM** (default family):
+
 ```
 CHAIN_8453_RPC_URL=https://mainnet.base.org
 CHAIN_8453_NAME=Base
+# CHAIN_8453_FAMILY=evm   # optional; default is evm
 ```
+
+**Solana**:
+
+```
+CHAIN_devnet_FAMILY=solana
+CHAIN_devnet_RPC_URL=https://api.devnet.solana.com
+CHAIN_devnet_NAME=Solana Devnet
+CHAIN_devnet_COMMITMENT=confirmed
+```
+
+`GET /chain` returns `{ chainFamily, chainId, name, rpcUrl }` for each configured chain.
+Solana backend wallets use ed25519 keys (`chain_family=solana`); EVM wallets remain secp256k1.
+Contract deploy/read/write routes are **EVM-only** in this release.
 
 ## Production hardening checklist (not yet done in this v0)
 
