@@ -78,6 +78,8 @@ const SHARED_KEYS = [
   "VITE_ENGINE_URL",
   "VITE_INSIGHT_URL",
   "VITE_DEFAULT_API_KEY",
+  "VITE_DEFAULT_ADMIN_KEY",
+  "VITE_WALLETCONNECT_PROJECT_ID",
 ];
 
 for (const [key, value] of shared) {

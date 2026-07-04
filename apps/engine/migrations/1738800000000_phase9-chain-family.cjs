@@ -15,7 +15,7 @@ exports.up = (pgm) => {
     chain_family: { type: "text", notNull: true, default: "evm" },
   });
   pgm.alterColumn("transactions", "chain_id", { type: "text", using: "chain_id::text" });
-  pgm.dropIndex("transactions", "idx_tx_chain", { ifExists: true });
+  pgm.sql('DROP INDEX IF EXISTS "idx_tx_chain";');
   pgm.createIndex("transactions", ["chain_family", "chain_id"], { name: "idx_tx_chain" });
 
   // --- deployed_contracts ---

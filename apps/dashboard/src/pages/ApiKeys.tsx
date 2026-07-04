@@ -3,7 +3,7 @@ import { useSettings } from "../context/SettingsContext";
 import type { ApiKeyRecord } from "@apkaya/sdk";
 
 export function ApiKeys() {
-  const { client, isConfigured } = useSettings();
+  const { adminClient, isConfigured, settings } = useSettings();
   const [keys, setKeys] = useState<ApiKeyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +14,7 @@ export function ApiKeys() {
 
   async function refresh() {
     try {
-      const result = await client.apiKeys.list();
+      const result = await adminClient.apiKeys.list();
       setKeys(result);
       setError(null);
     } catch (err) {
@@ -38,7 +38,7 @@ export function ApiKeys() {
     if (!newLabel.trim()) return;
     setCreating(true);
     try {
-      const created = await client.apiKeys.create(newLabel.trim());
+      const created = await adminClient.apiKeys.create(newLabel.trim());
       setJustCreated({ label: created.label, key: created.key });
       setNewLabel("");
       await refresh();
@@ -51,7 +51,7 @@ export function ApiKeys() {
 
   async function handleRevoke(id: string) {
     try {
-      await client.apiKeys.revoke(id);
+      await adminClient.apiKeys.revoke(id);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to revoke key");
@@ -60,7 +60,7 @@ export function ApiKeys() {
 
   async function handleReactivate(id: string) {
     try {
-      await client.apiKeys.reactivate(id);
+      await adminClient.apiKeys.reactivate(id);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reactivate key");
@@ -100,9 +100,14 @@ export function ApiKeys() {
       >
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-dim)" }}>
           This page requires the connection in <b style={{ color: "var(--text)" }}>Settings</b> to use
-          your Engine's <code>ENGINE_ADMIN_KEY</code> — the master key, separate from the keys you issue
-          here. Keys created below are for your customers to use in their own apps and cannot manage
-          other keys.
+          your Engine's <code>ENGINE_ADMIN_KEY</code> in Settings (Admin key field) — the master key,
+          separate from the customer API key used on other pages.
+          {!settings.adminApiKey?.trim() && (
+            <>
+              {" "}
+              Local dev default: set <code>VITE_DEFAULT_ADMIN_KEY</code> in <code>apps/dashboard/.env</code>.
+            </>
+          )}
         </p>
       </div>
 

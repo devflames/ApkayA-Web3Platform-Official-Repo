@@ -4,7 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import pino from "pino";
 import { pinoHttp } from "pino-http";
-import { requireApiKey, rateLimitByApiKey } from "@apkaya/engine/platform";
+import { requireApiKey, rateLimitByApiKey, devCors } from "@apkaya/engine/platform";
 
 import { runMigrations } from "./db/index.js";
 import { insightRouter } from "./routes/insight.js";
@@ -12,7 +12,14 @@ import { insightRouter } from "./routes/insight.js";
 const log = pino({ level: process.env.LOG_LEVEL || "info", name: "insight" });
 const app = express();
 
+app.set("etag", false);
+app.use((_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 app.use(helmet());
+app.use(devCors);
 app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ logger: log }));
 

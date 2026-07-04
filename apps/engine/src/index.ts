@@ -6,6 +6,7 @@ import pino from "pino";
 import { pinoHttp } from "pino-http";
 
 import { runMigrations } from "./db/index.js";
+import { devCors } from "./middleware/cors.js";
 import { requireApiKey, requireAdminKey } from "./middleware/auth.js";
 import { rateLimitByApiKey } from "./middleware/rateLimit.js";
 import { walletRouter } from "./routes/wallets.js";
@@ -19,7 +20,14 @@ import { apiKeyRouter } from "./routes/apiKeys.js";
 const log = pino({ level: process.env.LOG_LEVEL || "info", name: "engine" });
 const app = express();
 
+app.set("etag", false);
+app.use((_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 app.use(helmet());
+app.use(devCors);
 app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ logger: log }));
 

@@ -11,6 +11,7 @@ export function Bridge() {
   const connectConfig = useMemo(
     () => ({
       chainId: 8453,
+      walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
       engine: {
         baseUrl: settings.baseUrl,
         apiKey: settings.apiKey,

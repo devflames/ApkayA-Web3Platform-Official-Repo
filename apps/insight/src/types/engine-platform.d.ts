@@ -27,6 +27,11 @@ declare module "@apkaya/engine/platform" {
     res: import("express").Response,
     next: import("express").NextFunction
   ): void;
+  export function devCors(
+    req: import("express").Request,
+    res: import("express").Response,
+    next: import("express").NextFunction
+  ): void;
   export function rateLimitByApiKey(
     req: import("express").Request,
     res: import("express").Response,

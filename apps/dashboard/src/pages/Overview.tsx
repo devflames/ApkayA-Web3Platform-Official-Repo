@@ -16,6 +16,7 @@ export function Overview() {
   const connectConfig = useMemo(
     () => ({
       chainId: 80002,
+      walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
       engine: {
         baseUrl: settings.baseUrl,
         apiKey: settings.apiKey,

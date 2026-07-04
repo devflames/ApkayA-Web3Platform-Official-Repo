@@ -4,6 +4,8 @@ import { ApkayaClient } from "@apkaya/sdk";
 interface EngineSettings {
   baseUrl: string;
   apiKey: string;
+  /** ENGINE_ADMIN_KEY — only needed for the API Keys page. */
+  adminApiKey?: string;
   insightBaseUrl: string;
 }
 
@@ -11,6 +13,7 @@ interface SettingsContextValue {
   settings: EngineSettings;
   updateSettings: (next: EngineSettings) => void;
   client: ApkayaClient;
+  adminClient: ApkayaClient;
   isConfigured: boolean;
 }
 
@@ -19,6 +22,7 @@ const STORAGE_KEY = "apkaya-dashboard:engine-settings";
 const defaultSettings: EngineSettings = {
   baseUrl: import.meta.env.VITE_ENGINE_URL || "http://localhost:3005",
   apiKey: import.meta.env.VITE_DEFAULT_API_KEY || "",
+  adminApiKey: import.meta.env.VITE_DEFAULT_ADMIN_KEY || "",
   insightBaseUrl: import.meta.env.VITE_INSIGHT_URL || "http://localhost:3006",
 };
 
@@ -52,10 +56,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [settings.baseUrl, settings.apiKey, settings.insightBaseUrl]
   );
 
+  const adminClient = useMemo(
+    () =>
+      new ApkayaClient({
+        baseUrl: settings.baseUrl,
+        apiKey: settings.adminApiKey?.trim() || settings.apiKey,
+        insightBaseUrl: settings.insightBaseUrl,
+      }),
+    [settings.baseUrl, settings.apiKey, settings.adminApiKey, settings.insightBaseUrl]
+  );
+
   const value: SettingsContextValue = {
     settings,
     updateSettings,
     client,
+    adminClient,
     isConfigured: Boolean(settings.baseUrl && settings.apiKey),
   };
 

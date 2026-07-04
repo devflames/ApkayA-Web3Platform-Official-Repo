@@ -192,6 +192,7 @@ export class ApkayaClient {
 
   private async request<T>(path: string, init?: RequestInit, baseUrl = this.baseUrl): Promise<T> {
     const res = await fetch(`${baseUrl}${path}`, {
+      cache: "no-store",
       ...init,
       headers: {
         "Content-Type": "application/json",

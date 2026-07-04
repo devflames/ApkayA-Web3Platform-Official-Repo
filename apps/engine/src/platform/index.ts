@@ -1,6 +1,7 @@
 /** Shared platform modules for ApkayA services (Engine, Insight, …). */
 export { requireApiKey, requireAdminKey } from "../middleware/auth.js";
 export { rateLimitByApiKey } from "../middleware/rateLimit.js";
+export { devCors } from "../middleware/cors.js";
 export {
   listChains,
   getChainConfig,

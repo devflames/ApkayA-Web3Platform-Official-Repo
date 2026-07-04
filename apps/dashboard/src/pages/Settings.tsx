@@ -6,6 +6,7 @@ export function Settings() {
   const [baseUrl, setBaseUrl] = useState(settings.baseUrl);
   const [insightBaseUrl, setInsightBaseUrl] = useState(settings.insightBaseUrl);
   const [apiKey, setApiKey] = useState(settings.apiKey);
+  const [adminApiKey, setAdminApiKey] = useState(settings.adminApiKey ?? "");
   const [testResult, setTestResult] = useState<"idle" | "ok" | "fail">("idle");
   const [testing, setTesting] = useState(false);
 
@@ -14,6 +15,7 @@ export function Settings() {
       baseUrl: baseUrl.trim(),
       insightBaseUrl: insightBaseUrl.trim(),
       apiKey: apiKey.trim(),
+      adminApiKey: adminApiKey.trim(),
     });
     setTestResult("idle");
   }
@@ -25,6 +27,7 @@ export function Settings() {
         baseUrl: baseUrl.trim(),
         insightBaseUrl: insightBaseUrl.trim(),
         apiKey: apiKey.trim(),
+        adminApiKey: adminApiKey.trim(),
       });
       await client.chains.list();
       setTestResult("ok");
@@ -68,13 +71,25 @@ export function Settings() {
         </div>
 
         <div className="field">
-          <label htmlFor="api-key">API key</label>
+          <label htmlFor="api-key">Customer API key</label>
           <input
             id="api-key"
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="One of your ENGINE_ACCESS_KEYS values"
+            placeholder="ENGINE_ACCESS_KEYS value (e.g. dev-secret-key-change-me)"
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="admin-api-key">Admin key (API Keys page only)</label>
+          <input
+            id="admin-api-key"
+            type="password"
+            value={adminApiKey}
+            onChange={(e) => setAdminApiKey(e.target.value)}
+            placeholder="ENGINE_ADMIN_KEY from Engine .env"
             style={{ width: "100%" }}
           />
         </div>
