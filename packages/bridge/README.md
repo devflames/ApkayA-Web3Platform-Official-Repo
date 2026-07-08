@@ -13,7 +13,10 @@ You need a **CDP Secret API Key** from [portal.cdp.coinbase.com](https://portal.
 
 ```env
 CDP_API_KEY_ID=organizations/.../apiKeys/...
-CDP_API_KEY_SECRET="-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----\n"
+# Paste the **private key** value from the downloaded CDP JSON.
+# Keep it as a single line in your `.env` (use \n if your key contains newlines).
+# Example (placeholder):
+CDP_API_KEY_SECRET="-----BEGIN EC PRIVATE KEY-----\\nREDACTED\\n-----END EC PRIVATE KEY-----\\n"
 ```
 
 **Do not** use a Coinbase Exchange / Advanced Trade API key — different product, different auth, not usable here.
