@@ -1,0 +1,11 @@
+#!/bin/sh
+# Strip Cursor co-author trailers injected by Agent attribution.
+MSG_FILE="$1"
+if [ ! -f "$MSG_FILE" ]; then
+  exit 0
+fi
+
+TMP="${MSG_FILE}.tmp"
+grep -v 'cursoragent@cursor\.com' "$MSG_FILE" | grep -v '^Co-authored-by: Cursor' > "$TMP" || true
+mv "$TMP" "$MSG_FILE"
+exit 0
