@@ -3,6 +3,8 @@
 An open, self-hostable developer infrastructure platform for building on-chain
 apps — contracts, wallets, and a transaction backend
 
+**Official public repository:** [github.com/devflames/ApkayA-Web3Platform-Official-Repo](https://github.com/devflames/ApkayA-Web3Platform-Official-Repo)
+
 ## Open source, licensing, and what stays private
 
 This repository is intended to be **open-source and self-hostable** for the community.
