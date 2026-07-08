@@ -16,11 +16,9 @@ import { contractRouter } from "./routes/contracts.js";
 import { authRouter } from "./routes/auth.js";
 import { bridgeRouter } from "./routes/bridge.js";
 import { apiKeyRouter } from "./routes/apiKeys.js";
-import { createLicenseMonitor } from "./services/license.js";
 
 const log = pino({ level: process.env.LOG_LEVEL || "info", name: "engine" });
 const app = express();
-const license = createLicenseMonitor(log);
 
 app.set("etag", false);
 app.use((_req, res, next) => {
@@ -44,7 +42,7 @@ app.use(
 );
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString(), license: license.getStatus() });
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.use("/backend-wallet", requireApiKey, rateLimitByApiKey, walletRouter);
@@ -67,7 +65,6 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 async function main(): Promise<void> {
   await runMigrations();
-  license.start();
 
   const port = Number(process.env.PORT || 3005);
   app.listen(port, () => {

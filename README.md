@@ -5,17 +5,6 @@ apps — contracts, wallets, and a transaction backend
 
 **Official public repository:** [github.com/devflames/ApkayA-Web3Platform-Official-Repo](https://github.com/devflames/ApkayA-Web3Platform-Official-Repo)
 
-## Open source, licensing, and what stays private
-
-This repository is intended to be **open-source and self-hostable** for the community.
-
-- **Included here (open source)**: Engine, Insight, Dashboard, CLI, SDKs, Connect, Bridge, contract templates, and self-host tooling.
-- **Not included here**: any **vendor licensing server** (key issuance, billing, edition entitlements, signing keys). If you run a licensing server, keep it **private** and expose only a public validation endpoint to deployments.
-
-If you plan to offer commercial editions, the recommended pattern is:
-- Public repo: product source (this repo)
-- Private repo/service: license key issuance + validation API
-
 ## Monorepo layout
 
 ```
