@@ -19,6 +19,13 @@ For these repositories, commits must have **only one author** — never add co-a
 - Do **not** use `--co-authored-by`, `git commit --author` for a second person, or amend to add co-author lines.
 - Do **not** use squash/merge strategies that inject co-author trailers from bots or tools unless the user explicitly requests it.
 
+## Disable Cursor auto-attribution
+
+Cursor injects `Co-authored-by: Cursor <cursoragent@cursor.com>` unless disabled:
+
+1. **Cursor Settings → Agent → Attribution** — turn **off** commit attribution (re-check after Cursor updates).
+2. After clone, run: `powershell -File scripts/install-githooks.ps1` — strips Cursor trailers on every commit.
+
 ## Forbidden in commit messages
 
 ```
