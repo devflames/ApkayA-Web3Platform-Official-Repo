@@ -1,4 +1,4 @@
-.cursor/
+.cursor/*
 !.cursor/rules/
 !.cursor/rules/**
 

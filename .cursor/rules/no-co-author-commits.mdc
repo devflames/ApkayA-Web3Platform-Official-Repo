@@ -1,0 +1,29 @@
+---
+description: Never add co-authors to git commits for devflames or ApkayA repos
+alwaysApply: true
+---
+
+# No co-authors on commits
+
+For these repositories, commits must have **only one author** — never add co-authors:
+
+- `devflames` (GitHub profile repo)
+- `ApkayA-Web3Platform-Official-Repo`
+- `ApkayA-Web3Platform-License-Server`
+- `ApkayA-Web3Platform` (dev mirror of official public repo)
+
+## Required
+
+- Use a single commit author: **Albert Camingawan** / `devflames@gmail.com` (repo-local `git config` is fine).
+- Write commit messages with **no** `Co-authored-by:` trailers.
+- Do **not** use `--co-authored-by`, `git commit --author` for a second person, or amend to add co-author lines.
+- Do **not** use squash/merge strategies that inject co-author trailers from bots or tools unless the user explicitly requests it.
+
+## Forbidden in commit messages
+
+```
+Co-authored-by: ...
+Co-Authored-By: ...
+```
+
+If a tool or template tries to append co-author trailers, remove them before committing.
