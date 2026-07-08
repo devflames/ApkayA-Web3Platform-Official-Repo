@@ -1,4 +1,6 @@
 .cursor/
+!.cursor/rules/
+!.cursor/rules/**
 
 node_modules/
 dist/
